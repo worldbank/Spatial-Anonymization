@@ -318,7 +318,7 @@ class SimpleDisplacer(object):
         -------
 
         """
-        df_hh_coords = self.coords_data
+        df_hh_coords = self.coords_data.copy()
 
         min_lat = df_hh_coords[self.lat].min()
         max_lat = df_hh_coords[self.lat].max()
