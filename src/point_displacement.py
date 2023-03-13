@@ -380,10 +380,19 @@ class SimpleDisplacer(object):
 
         return df_hh_coords
 
-    def run_displacer(self):
+    def run_displacer(self, output_file):
         """
-        Calls all the required funcions to generate the displacemeents
-        Returns - Saves CSV file into self.output_dir with displaced coordinates
+        Calls all the required functions to generate the displacements.
+
+        Parameters
+        ----------
+        output_file (str) - Full path for output file.
+        If not given, will save file to given output directory with same name as input_coords file
+        and suffix "disp".
+
+        Returns - Saves CSV file with four new columns as follows:
+        'disp_x', 'disp_y'- new displaced coordinates in meters.
+        'disp_lon', 'disp_lat' - new displaced coordinates  in decimal degrees
         -------
 
         """
@@ -426,8 +435,11 @@ class SimpleDisplacer(object):
         # =========================
         print('SAVING OUTPUTS .........')
         print('#' * 50, "\n")
-        output_csv_filename = "{}_disp.csv".format(self.data_file.parts[-1].split(".")[0])
-        output_csv_fpath = self.output_dir.joinpath(output_csv_filename)
+        if Path(output_file).parents[0].exists():
+            output_csv_fpath = output_file
+        else:
+            output_csv_filename = "{}_disp.csv".format(self.data_file.parts[-1].split(".")[0])
+            output_csv_fpath = self.output_dir.joinpath(output_csv_filename)
 
         # Remove unnecessary columns before saving
         shp_cols = self.adm_data.columns
@@ -435,6 +447,8 @@ class SimpleDisplacer(object):
         df = df[keep_cols]
 
         df.to_csv(output_csv_fpath, index=False)
+        print()
+        print('Output CSV file with anonymized coordinates saved to file: \n {}'.format(output_csv_fpath))
         # update coordinates data with this dataframe
         self.coords_data_disp = df
 
