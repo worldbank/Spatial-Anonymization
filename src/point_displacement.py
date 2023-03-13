@@ -1,7 +1,7 @@
 """
 Created on Mar 6, 2023
 @author-1: Dunstan Matekenya
-@author-2: Andres
+@author-2: Andres Chamoro
 """
 
 from pathlib import Path
