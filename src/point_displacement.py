@@ -1,9 +1,9 @@
 """
 Created on Mar 6, 2023
 @author-1: Dunstan Matekenya
-@author-2: Andres Chamoro
+@author-2: Andres
 """
-
+import utils
 from pathlib import Path
 from datetime import datetime
 
@@ -64,15 +64,15 @@ class SimpleDisplacer(object):
         # set column names
         self.lon = lon_col
         self.lat = lat_col
-        self.x = 'hh_x'  # column name for original coordinates in meters
-        self.y = 'hh_y'  # column name for original coordinates in meters
-        self.disp_x = 'hh_disp_x'  # column name for displaced coordinates in meters
-        self.disp_y = 'hh_disp_y'  # column name for displaced coordinates in meters
-        self.disp_lon = 'hh_disp_lon'  # column name for displaced coordinates in meters
-        self.disp_lat = 'hh_disp_lat'  # column name for displaced coordinates in meters
+        self.x = 'x'  # column name for original coordinates in meters
+        self.y = 'y'  # column name for original coordinates in meters
+        self.disp_x = 'disp_x'  # column name for displaced coordinates in meters
+        self.disp_y = 'disp_y'  # column name for displaced coordinates in meters
+        self.disp_lon = 'disp_lon'  # column name for displaced coordinates in degrees
+        self.disp_lat = 'disp_lat'  # column name for displaced coordinates in degrees
 
-        self.urb_rur = urb_rur_col
-        self.rural = rural_code
+        self.urb_rur_col = urb_rur_col
+        self.rural_val = rural_code
         self.id = unique_id
 
         self.geodetic_epsg_code = geodetic_crs
@@ -87,7 +87,7 @@ class SimpleDisplacer(object):
 
         # Lets hold the coordinates and the admin regions
         # in these variables in case we need to use them
-        self.coords_data = None   # Running dataframe as we do processing
+        self.coords_data = None  # Running dataframe as we do processing
         # Original dataframe, except for dropped null values
         # Keep this for sanity checks
         self.original_coords = None
@@ -110,7 +110,7 @@ class SimpleDisplacer(object):
         -------
 
         """
-        # ==========================================
+        # =========================================
         # LOAD DATA AND DO PRELIMINARY CLEAN-UP
         # =========================================
         df_hh_coords = None
@@ -122,7 +122,7 @@ class SimpleDisplacer(object):
             print('PLEASE CONVERT THE COORDINATES FILE TO CSV OR STATA FILE')
 
         # set unique-id as string to avoid number issues
-        df_hh_coords[self.id] = df_hh_coords[self.id]
+        df_hh_coords[self.id] = df_hh_coords[self.id].astype(str)
 
         # drop any null values in lat/lon columns
         df_hh_coords[[self.lon, self.lat]] = df_hh_coords[[self.lon, self.lat]].astype(float)
@@ -146,6 +146,37 @@ class SimpleDisplacer(object):
         else:
             self.coords_data = df_hh_coords
             self.original_coords = df_hh_coords
+
+        # ====================================================
+        # COLLAPSE TO EA LEVEL/ANOTHER LEVEL IF NEED TO
+        # ====================================================
+        df = self.coords_data
+        if df[self.id].value_counts().mean() > 5:
+            print()
+            print('Grouping to {} level and calculating average coordinates'.format(self.id))
+            print()
+            df_ea = df.groupby(['ea_id']).agg(ea_ctr_lat=(self.lat, 'mean'),
+                                              ea_ctr_lon=(self.lon, 'mean'),
+                                              urb_rur=(self.urb_rur_col,
+                                                       pd.Series.mode)).reset_index()
+            # change column names
+            self.lon = 'ea_ctr_lon'
+            self.lat = 'ea_ctr_lat'
+            self.urb_rur_col = 'urb_rur'
+
+            # update data
+            self.coords_data = df_ea
+        else:
+            pass
+
+        # =========================================
+        # FIX URBAN/RURAL CODE
+        # =========================================
+        df_hh_coords = self.coords_data
+        if isinstance(self.rural_val, str):
+            df_hh_coords[self.urb_rur_col] = df_hh_coords[self.urb_rur_col].apply(lambda x: x.lower())
+            df_hh_coords[self.urb_rur_col] = df_hh_coords[self.urb_rur_col].map({'rural': 1, 'urban': 2})
+            self.rural_val = 1
 
         # ====================================================
         # INFER PROJECTED CRS (EPSG CODE) FROM LAT/LON VALUES
@@ -182,11 +213,11 @@ class SimpleDisplacer(object):
         # URBAN/RURAL MAXIMUM DISTANCES
         # ============================================
         df_hh_coords = self.coords_data
-        df_hh_coords['max_dist'] = df_hh_coords[self.urb_rur].apply(
-            lambda x: self.rur_max_dist if x == self.rural else self.urb_max_dist)
+        df_hh_coords['max_dist'] = df_hh_coords[self.urb_rur_col].apply(
+            lambda x: self.rur_max_dist if x == self.rural_val else self.urb_max_dist)
         if self.apply_min_dist:
-            df_hh_coords['min_dist'] = df_hh_coords[self.urb_rur].apply(
-                lambda x: self.rur_min_dist if x == self.rural else self.urb_min_dist)
+            df_hh_coords['min_dist'] = df_hh_coords[self.urb_rur_col].apply(
+                lambda x: self.rur_min_dist if x == self.rural_val else self.urb_min_dist)
         else:
             df_hh_coords['min_dist'] = 0
 
@@ -203,7 +234,7 @@ class SimpleDisplacer(object):
             df_hh_coords[id_col] = ['tmp_{}'.format(i) for i in range(1, len(df_hh_coords) + 1)]
 
         # get rural hh/coordinates
-        df_rur = df_hh_coords.query('{} == {}'.format(self.urb_rur, self.rural))
+        df_rur = df_hh_coords.query('{} == {}'.format(self.urb_rur_col, self.rural_val))
 
         # set required number of rural households to select using the proportion param
         rural_sub_size = int(len(df_rur) * self.rur_sub_prop)
@@ -318,7 +349,7 @@ class SimpleDisplacer(object):
         -------
 
         """
-        df_hh_coords = self.coords_data.copy()
+        df_hh_coords = self.coords_data
 
         min_lat = df_hh_coords[self.lat].min()
         max_lat = df_hh_coords[self.lat].max()
@@ -338,7 +369,7 @@ class SimpleDisplacer(object):
         if len(utm_crs_code_list) > 1:
             # EPSG code to each row
             df_hh_coords[self.proj_crs_col] = df_hh_coords.apply(lambda x:
-                                                                 convert_wgs_coordinates_to_utm(
+                                                                 utils.convert_wgs_coordinates_to_utm(
                                                                      x[self.lon], x[self.lat]), axis=1)
             proj_crs_list = list(df_hh_coords[self.proj_crs_col].unique())
             # Ensure that the two methods found the same codes
@@ -360,7 +391,7 @@ class SimpleDisplacer(object):
         # PREPARE THE DATA
         # ========================
         print('PREPARING DATA FOR DISPLACEMENT...........')
-        print('#'*50, "\n")
+        print('#' * 50, "\n")
 
         start = datetime.now()
         df = self.prepare_data()
@@ -373,8 +404,8 @@ class SimpleDisplacer(object):
         df['tmp_new_xy'] = df.apply(lambda x: self.add_displaced_coordinates(x), axis=1)
         df[self.disp_x] = df.tmp_new_xy.apply(lambda x: x[0])
         df[self.disp_y] = df.tmp_new_xy.apply(lambda x: x[1])
-        df['hh_disp_lon'] = df.tmp_new_xy.apply(lambda x: x[2])
-        df['hh_disp_lat'] = df.tmp_new_xy.apply(lambda x: x[3])
+        df[self.disp_lon] = df.tmp_new_xy.apply(lambda x: x[2])
+        df[self.disp_lat] = df.tmp_new_xy.apply(lambda x: x[3])
         df.drop(columns=['geometry', 'tmp_new_xy'], inplace=True)
 
         # =========================
@@ -449,10 +480,10 @@ class SimpleDisplacer(object):
         # ===================================
         # GET SUMMARY STATISTICS
         # ===================================
-        df_rur = df_res.query('{} == {}'.format(self.urb_rur, self.rural))
-        assert len(df_res[self.urb_rur].unique()) == 2, 'THERE SHOULD BE ONLY TWO URBAN/RURAL VALUES'
-        urb_code = list(set(df_res[self.urb_rur].unique()) - {self.rural})[0]
-        df_urb = df_res.query('{} == {}'.format(self.urb_rur, urb_code))
+        df_rur = df_res.query('{} == {}'.format(self.urb_rur_col, self.rural_val))
+        assert len(df_res[self.urb_rur_col].unique()) == 2, 'THERE SHOULD BE ONLY TWO URBAN/RURAL VALUES'
+        urb_code = list(set(df_res[self.urb_rur_col].unique()) - {self.rural_val})[0]
+        df_urb = df_res.query('{} == {}'.format(self.urb_rur_col, urb_code))
 
         res = []
         if 'mean' in stats:
@@ -483,7 +514,7 @@ class SimpleDisplacer(object):
         # ===================================
         df_stats = pd.DataFrame(res)
         print()
-        print("="*50)
+        print("=" * 50)
         print('STATISTICS BASED OFF ORIGINAL VS. DISPLACED COORDS')
         print("=" * 50)
         print(df_stats)
@@ -584,30 +615,6 @@ def distance_latlon_points(pt1, pt2, ellipsoid="WGS84"):
     return total_length / 1000
 
 
-def convert_wgs_coordinates_to_utm(lon, lat):
-    """
-    Given latitude, longitude coordinates based on WGS84, convert to
-    UTM zone and EPSG code. Shamelessly copied from here:
-    https://stackoverflow.com/questions/40132542/
-    Parameters
-    ----------
-    lon - input longitude
-    lat - input latitude
-
-    Returns EPSG code
-    -------
-
-    """
-    utm_band = str((math.floor((lon + 180) / 6) % 60) + 1)
-    if len(utm_band) == 1:
-        utm_band = '0' + utm_band
-    if lat >= 0:
-        epsg_code = '326' + utm_band
-    else:
-        epsg_code = '327' + utm_band
-    return epsg_code
-
-
 def degrees_to_meters(x_degrees, y_degrees, utm_crs_epsg):
     """
     Convert coordinates in decimal degrees to meters
@@ -656,3 +663,77 @@ def meters_to_degrees(x, y, utm_crs_epsg, geodetic_crs_epsg):
     assert (180 > lat > -180), 'latitude outside of wrapping bounds'
 
     return lon, lat
+
+
+def generate_displacement_stats(df_disp, x, y, x_disp, y_disp, urb_rur_col, rural_val, stats=None):
+    """
+    Run diagnostic summary statistics on distance between original
+    and displaced point
+    Parameters
+    ----------
+    df_disp - Dataframe with original and displaced coordinates
+    x - Column with original longitude degrees which were input into displacement
+    y - Column with original latitude degrees which were input into displacement
+    urb_rur_col - Column with urban/rural information
+    rural_val - Value for rural
+    stats - List of summary statistics to run. For example, mean, median, min, maximamum
+
+    Returns Saves summary statistics as a CSV file
+    -------
+
+    """
+    # ===================================
+    # CALCULATE DISTANCES
+    # ===================================
+    df = df_disp.copy(deep=True)
+    df['dist'] = df.apply(lambda row: distance_latlon_points((row[x], row[y]),
+                                                             (row[x_disp], row[y_disp])), axis=1)
+
+    # ===================================
+    # GET SUMMARY STATISTICS
+    # ===================================
+    if isinstance(rural_val, str):
+        df[urb_rur_col] = df[urb_rur_col].apply(lambda x: x.lower())
+        df[urb_rur_col] = df[urb_rur_col].map({'rural': 1, 'urban': 2})
+        rural_val = 1
+
+    df_rur = df.query('{} == {}'.format(urb_rur_col, rural_val))
+    assert len(df[urb_rur_col].unique()) == 2, 'THERE SHOULD BE ONLY TWO URBAN/RURAL VALUES'
+    urb_code = list(set(df[urb_rur_col].unique()) - {rural_val})[0]
+    df_urb = df.query('{} == {}'.format(urb_rur_col, urb_code))
+
+    res = []
+    if 'mean' in stats:
+        urb_mean = df_urb['dist'].mean()
+        rur_mean = df_rur['dist'].mean()
+        res.append({'stat': 'mean', 'area': 'urban', 'value': urb_mean})
+        res.append({'stat': 'mean', 'area': 'rural', 'value': rur_mean})
+    if 'median' in stats:
+        urb_med = df_urb['dist'].median()
+        rur_med = df_rur['dist'].median()
+        res.append({'stat': 'median', 'area': 'urban', 'value': urb_med})
+        res.append({'stat': 'median', 'area': 'rural', 'value': rur_med})
+
+    if 'min' in stats or 'minimum' in stats:
+        urb_min = df_urb['dist'].min()
+        rur_min = df_rur['dist'].min()
+        res.append({'stat': 'minimum', 'area': 'urban', 'value': urb_min})
+        res.append({'stat': 'minimum', 'area': 'rural', 'value': rur_min})
+
+    if 'max' in stats or 'maximum' in stats:
+        urb_max = df_urb['dist'].max()
+        rur_max = df_rur['dist'].max()
+        res.append({'stat': 'maximum', 'area': 'urban', 'value': urb_max})
+        res.append({'stat': 'maximum', 'area': 'rural', 'value': rur_max})
+
+    # ===================================
+    # PRINT AND SAVE SUMMARY STATISTICS
+    # ===================================
+    df_stats = pd.DataFrame(res)
+    print()
+    print("=" * 50)
+    print('STATISTICS BASED OFF ORIGINAL VS. DISPLACED COORDS')
+    print("=" * 50)
+    print(df_stats)
+
+    return df_stats
