@@ -3,17 +3,17 @@ requires = ["setuptools>=61.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "datalab"
-dynamic = ["version"]
-description = "An Python exampe package from the World Bank Data Lab"
+name = "spatial-anonymization"
+version = "1.0.0"
+description = "A Python package for anonymizing GPS coordinates from household surveys"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {file = "LICENSE.md", content-type = "text/markdown"}
-keywords = ["world bank", "template", "reproducible research"]
+keywords = ["Spatial Anonymization", "DECAT, World Bank", "Household surveys"]
 authors = [
-  {name="World Bank Development Data Group", email="datalab@worldbank.org"},
+  {name="World Bank Development Data Group, GOST team", email="gostb@worldbank.org"},
 ]
 maintainers = [
-  {name="Gabriel Stefanini Vicente", email="gvicente@worldbank.org"},
+  {name="Dunstan Matekenya", email="dmatekenya@worldbankgroup.org"},
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -29,16 +29,28 @@ classifiers = [
 ]
 requires-python = ">=3.7"
 dependencies = [
-	"requests>=2.28.1",
-    "pycountry>=22.3.5",
-]
+"boto3>=1.24.28",
+"botocore>=1.27.59",
+"geopandas==0.9.0",
+"GOSTnets>=1.0.1",
+"numpy>=1.23.5",
+"osmnx>=1.2.2",
+"pandana>=0.6.1",
+"pandas>=1.5.3",
+"pyproj>=3.1.0",
+"rasterio>=1.2.10",
+"requests>=2.28.1",
+"scikit_image>=0.19.3",
+"scipy>=1.10.0",
+"Shapely>=1.8.4"]
+
 [project.optional-dependencies]
 notebook = ["notebook>=6.5.2"]
 
 [project.urls]
-"Homepage" = "https://github.com/worldbank/template"
-"Bug Reports" = "https://github.com/worldbank/template/issues"
-"Source" = "https://github.com/worldbank/template"
+"Homepage" = "https://github.com/worldbank/Spatial-Anonymization"
+"Bug Reports" = "https://github.com/worldbank/Spatial-Anonymization"
+"Source" = "https://github.com/worldbank/Spatial-Anonymization"
 
 [tool.setuptools.dynamic]
-version = {attr = "datalab.__version__"}
+# version = {attr = "spatial-anonymization.__version__"}

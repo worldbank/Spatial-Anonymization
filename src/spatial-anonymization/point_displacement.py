@@ -629,7 +629,7 @@ def distance_latlon_points(pt1, pt2, ellipsoid="WGS84"):
     return total_length / 1000
 
 
-def degrees_to_meters(x_degrees, y_degrees, utm_crs_epsg):
+def degrees_to_meters(x_degrees, y_degrees, utm_crs_epsg=None):
     """
     Convert coordinates in decimal degrees to meters
     Parameters
@@ -642,6 +642,9 @@ def degrees_to_meters(x_degrees, y_degrees, utm_crs_epsg):
     For example: (714931.710372255, 8262655.189366714) = degrees_to_meters(35.005599, -15.705196, projected_crs=32736)
     -------
     """
+    # Get projected CRS EPSG code if not given
+    if not utm_crs_epsg:
+         utm_crs_epsg = utils.convert_wgs_coordinates_to_utm(lon=x_degrees, lat=y_degrees)
 
     # Ensure lon and lat values are valid
     assert (360 > x_degrees > -360), 'longitude outside of wrapping bounds'
@@ -654,7 +657,7 @@ def degrees_to_meters(x_degrees, y_degrees, utm_crs_epsg):
     return x, y
 
 
-def meters_to_degrees(x, y, utm_crs_epsg, geodetic_crs_epsg):
+def meters_to_degrees(x, y, utm_crs_epsg, geodetic_crs_epsg=4326):
     """
     Convert coordinates in meters to decimal degrees
     Parameters

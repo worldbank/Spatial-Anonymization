@@ -1,23 +1,27 @@
-# Spatial Anonymization 
 
-This repository contains Python code to enable application of systematic perturbations to household GPS coordinates and other coordinates from household survey data deemed sensitive. After this process, the coordinates can be publicly reealised as they are considered fully anonymised and the risk of identificaiton is minimal. The first implementation of this anonyimization process is insipired by the DHS team approach as explained in [this document]()
-.
-## Repository setup
-The repository contains the following folders:
+# Introduction 
+----
+**spatial-anonymization** is a Python package with utilities to enable anonymization of GPS coordinates. For example, given highly confidential household GPS coordinates from a Household survey which you need to disseminate, **spatial-anonymization** allows you to perturb the raw coordinates and generate new anomymized coordinates with dramaticall reduced risk of identification. 
 
-- **docs/**
+# Features
+**spatial-anonymization** allows you to do the folowing:
+1. Generate anonymized coordinates ready for publication/dissemination from raw confidential coordinates
+2. Measure risk of re-identification of anonymized coordinates
+3. Perform commonly required geospatial data processing related to GPS coordinates from household surveys
 
-    > Documentation is often never priotized until last minute. The <span style="color:#3EACAD">template</span> aims to revert the malpractice by setting up the documentation as an integral part of the code repository. With the power of [Jupyter Book](https://jupyterbook.org), data practioners have a way to share [Jupyter notebooks](https://jupyter.org) on [GitHub Pages](https://pages.github.com) in a standardized and effortless way.
 
-- **data/**
-    > Placeholder folder for data. Data is immutable. By default, the data folder is present but ignored from version control, in order to prevent files of being mistakenly versioned in the code repository.
+# Installation
+For now, this package is still private and only available to World Bank Group staff. Do the following to install the package.
+1. **Get added to the repo.** Contact dmatekenya@worldbankgroup.org to get added
+2. **Clone the repo.**
+3. **Install the package** Navigate to the package directory and install like below.
+```
+python -m pip install .
+``` 
+# Usage
+Please see this [example usage notebook](https://github.com/worldbank/Spatial-Anonymization/blob/main/notebooks/point_displacement_usage_example.ipynb)
 
-- **src/**
-    > Placeholder folder for source code. If Python, it is recommended the package is made pip-installable.
-
-- **notebooks/**
-    > Placeholder folder for [Jupyter notebooks](https://jupyter.org). Markdown files and Jupyter notebooks can be added to `docs/_toc.yml` (Table of Contents) to compose the *documentation*.
-
-## Contacts
+## Documentation
+This package is being developed as part of the **Surveys Geo-enhacement** project withing DECAT. See [Survey Geo-enhacement repo](https://github.com/worldbank/DECAT_HH_Geovariables) for details. 
 
 
