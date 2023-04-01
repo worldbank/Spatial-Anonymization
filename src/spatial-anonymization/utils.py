@@ -1,8 +1,13 @@
 """
-Contains miscellaneous functions for spatia data processing
+Module with miscellaneous functions for geospatial data processing
 Created on Mar 6, 2023
 @author-1: Dunstan Matekenya
 @author-2: Andres
+
+For the sake of convinience and to reduce dependencies, some functions have 
+been copied from the following repos/packages:
+1. GOSTnets
+2. https://github.com/worldbank/INFRA_SAP/blob/master/infrasap/market_access.py
 """
 from pathlib import Path
 import shutil
@@ -26,7 +31,6 @@ import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 
-import market_access as ma
 import point_displacement as pod
 
 
@@ -100,11 +104,13 @@ def extract_impact_observ_lulc_tif(adm0_shp, output_dir, utm_zones, yr=None):
                     gdf2 = gdf.to_crs(tile.crs.to_epsg())
                     shape = gdf2.iloc[0]['geometry']
                 try:
-                    out_image, out_transform = rasterio.mask.mask(tile, shape, crop=True)
+                    out_image, out_transform = rasterio.mask.mask(
+                        tile, shape, crop=True)
                     raster_list.append(output_dir.joinpath(file))
                     break
                 except ValueError:
-                    print(f"No overlap found for {tile.files[0]}. Try the next one ..")
+                    print(
+                        f"No overlap found for {tile.files[0]}. Try the next one ..")
                     continue
 
     return raster_list
@@ -217,7 +223,7 @@ def distance_matrix(xy_list=None):
     return df
 
 
-def distance_to_points(pts_list, target_pt, output='dist_list'):    
+def distance_to_points(pts_list, target_pt, output='dist_list'):
     """
     Measure distance from target_pt to all points in pts_list.
     Parameters
@@ -230,9 +236,9 @@ def distance_to_points(pts_list, target_pt, output='dist_list'):
     -------
     """
     df = pd.DataFrame(pts_list, columns=['lat', 'lon'])
-    df['dist'] = df.apply(lambda x: distance_between_points(pt1=(x['lat'], x['lon']), 
+    df['dist'] = df.apply(lambda x: distance_between_points(pt1=(x['lat'], x['lon']),
                                                             pt2=(target_pt[0], target_pt[1])), axis=1)
-    
+
     if output == 'nearest':
         return df['dist'].min()
     elif output == 'dist_list':
@@ -244,20 +250,21 @@ def distance_to_points(pts_list, target_pt, output='dist_list'):
 def load_csv_into_geopandas(csv_with_coords, lat, lon):
     """
     Helper function to convert a CSV file with lat, lon into Geopandas Geodataframe
-    
+
     Parameters
     ----------
     csv_with_coords(str) - Full path of CSV file with coordinates
     lat(str) - Column name with latitude
     lon(str) - Column name with longitude
-    
+
     Returns
     -------
     A Geopandas GeoDataframe
     """
     df = pd.read_csv(csv_with_coords)
-    gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df[lon], df[lat]), crs=4326)
-    
+    gdf = gpd.GeoDataFrame(
+        df, geometry=gpd.points_from_xy(df[lon], df[lat]), crs=4326)
+
     return gdf
 
 
@@ -265,7 +272,7 @@ def clip_raster(input_raster, clip_polygon, out_file):
     ''' 
     Clip input raster using shapefile copied from:
     https://github.com/worldbank/GOST/blob/Scripts/GOSTRocks/rasterMisc.py
-    
+
     Parameters
     ----------
     input_raster(rasterio object) - Raster file to clip
@@ -279,8 +286,9 @@ def clip_raster(input_raster, clip_polygon, out_file):
     if clip_polygon.crs != input_raster.crs:
         clip_polygon = clip_polygon.to_crs(input_raster.crs)
     out_meta = input_raster.meta.copy()
+
     def getFeatures(gdf):
-        #Function to parse features from GeoDataFrame in such a manner that rasterio wants them
+        # Function to parse features from GeoDataFrame in such a manner that rasterio wants them
         return [json.loads(gdf.to_json())['features'][0]['geometry']]
     tD = gpd.GeoDataFrame([[1]], geometry=[clip_polygon.unary_union])
     coords = getFeatures(tD)
@@ -296,12 +304,12 @@ def clip_raster(input_raster, clip_polygon, out_file):
 def admin_bounds_from_geoboundaries(co_iso='MWI', admin_level=0):
     """
     Retrieves admin boundaries for country from https://www.geoboundaries.org/api.html API.
-    
+
     Parameters
     ----------
     co_iso(str) - Country ISO3 code, for example MWI
     admin_level(int) - Admin level provided as an integer
-    
+
     Returns
     -------
     A Geopandas GeoDataframe
@@ -309,18 +317,19 @@ def admin_bounds_from_geoboundaries(co_iso='MWI', admin_level=0):
 
     assert len(co_iso) == 3, 'PLEASE PROVIDE A VALID ISO CODE FOR THE COUNTRY'
     assert admin_level < 10, 'PLEASE PROVIDE A VALID ADMIN LEVEL NUMBER'
-    
+
     # ==========================================
     # LOAD GEOBOUNDARY JSON OBJECT
     # ==========================================
     admin_lev_str = 'ADM{}'.format(admin_level)
-    r = requests.get("https://www.geoboundaries.org/gbRequest.html?ISO={}&ADM={}".format(co_iso.upper(), admin_lev_str.upper()))
+    r = requests.get("https://www.geoboundaries.org/gbRequest.html?ISO={}&ADM={}".format(
+        co_iso.upper(), admin_lev_str.upper()))
     dl_path = r.json()[0]['gjDownloadURL']
     geom_json = requests.get(dl_path).json()
-    
+
     # ==========================================
     # CONVERT JSON INTO GEOPANDAS DATAFRAME
-    # ========================================== 
+    # ==========================================
     # For now just extract WGS84
     # Also, just default to WGS84
     # TO-DO: find a better way to convert from OGC CRS to EPSG
@@ -334,17 +343,32 @@ def admin_bounds_from_geoboundaries(co_iso='MWI', admin_level=0):
     except:
         print('Please manually check CRS, now defaulting to WGS-84')
         crs_epsg_code = 4326
-    
+
     data = []
     for feature in geom_json['features']:
         properties = feature['properties']
         geometry = shape(feature['geometry'])
         properties['geometry'] = geometry
         data.append(properties)
-    
+
     gdf = gpd.GeoDataFrame(data, crs=crs_epsg_code)
-    
+
     return gdf
+
+
+def get_mcp_dests(inH, destinations):
+    ''' Get indices from inH for use in mcp.find_costs
+    INPUT
+        inH[rasterio] - object from which to extract geographic coordinates
+        destinations[geopandas geodataframe] - point geodataframe of destinations
+    RETURN
+        [list of indices]
+    '''
+    cities = list(set([inH.index(x.x, x.y) for x in destinations['geometry']]))
+    cities = [x for x in cities if ((x[0] > 0) and (x[1] > 0) and
+                                    (x[0] <= inH.shape[0]) and (x[1] <= inH.shape[1]))]
+    return(cities)
+
 
 def generate_travel_time_raster(friction_raster=None, dest=None, outdir=None, out_raster=None):
     """
@@ -357,7 +381,7 @@ def generate_travel_time_raster(friction_raster=None, dest=None, outdir=None, ou
     dest (gpd.GeoDataFrame) : A GeoPandas Datafreme object with target destination points.
     outdir (str) : Directory to hold outputs, some of them temporary.
     out_raster (str) : Preferred file name with extension ".tif" of output travel surface, it will be saved in outdir.
-    
+
     Returns
     -------
     str
@@ -370,7 +394,7 @@ def generate_travel_time_raster(friction_raster=None, dest=None, outdir=None, ou
         assert out_raster.split(".")[1] == "tif"
     except (AssertionError, IndexError):
         print('PLEASE ADD EXTENSION {} TO OUTPUT RASTER FILE NAME'.format(tif))
-    
+
     # ===========================================
     # CREATE MCP OBJECT
     # ===========================================
@@ -378,23 +402,23 @@ def generate_travel_time_raster(friction_raster=None, dest=None, outdir=None, ou
     inG_data = inG.read() * 1000
     # Correct no data values
     inG_data[inG_data < 0] = 99999999
-    mcp = graph.MCP_Geometric(inG_data[0,:,:])
+    mcp = graph.MCP_Geometric(inG_data[0, :, :])
 
-    
     # ============================================
     # CALCULATE TRAVEL TIME AND SAVE OUTPUT RASTER
     # ============================================
     out_file = Path(outdir).joinpath(out_raster)
-    facility_cells = ma.get_mcp_dests(inG, dest)
-    costs, traceback = mcp.find_costs(facility_cells)  
+    facility_cells = get_mcp_dests(inG, dest)
+    costs, traceback = mcp.find_costs(facility_cells)
     costs[np.isinf(costs)] = 0
     costs[np.isnan(costs)] = 0
     meta = inG.meta.copy()
     meta.update(dtype=costs.dtype)
     with rasterio.open(out_file, 'w', **meta) as out:
         out.write_band(1, costs)
-    
+
     return out_file
+
 
 def terminal_coordinates(origin_coords, bearing, distance, return_degrees=True):
     """Calculates end coordinates in decimal degrees given initial/origin coordinates in decimal degrees.
@@ -410,7 +434,7 @@ def terminal_coordinates(origin_coords, bearing, distance, return_degrees=True):
         Distance in meters.
     return_degrees : Boolean, default = True
         Whether to return new point in degrees or meters
-    
+
     Returns
     ----------
     Tuple
@@ -426,7 +450,8 @@ def terminal_coordinates(origin_coords, bearing, distance, return_degrees=True):
     x, y = pod.degrees_to_meters(origin_coords[0], origin_coords[1])
 
     # get projected CRS EPSG code
-    utm_crs_epsg = int(convert_wgs_coordinates_to_utm(origin_coords[0], origin_coords[1]))
+    utm_crs_epsg = int(convert_wgs_coordinates_to_utm(
+        origin_coords[0], origin_coords[1]))
 
     # ==========================
     # GENERATE NEW POINT
@@ -442,10 +467,12 @@ def terminal_coordinates(origin_coords, bearing, distance, return_degrees=True):
 
     # Convert back to degrees
     if return_degrees:
-        x_degrees, y_degrees = pod.meters_to_degrees(x_new, y_new, utm_crs_epsg=utm_crs_epsg)
+        x_degrees, y_degrees = pod.meters_to_degrees(
+            x_new, y_new, utm_crs_epsg=utm_crs_epsg)
         return x_degrees, y_degrees
     else:
         return x_new, y_new
+
 
 def download_osm_shapefiles(region, country, outdir):
     """Downloads OSM latest shapefile from http://download.geofabrik.de/
@@ -459,32 +486,33 @@ def download_osm_shapefiles(region, country, outdir):
         Country name in full _description_
     outdir : str
         Directory to save the data.
-    
+
     Returns
     --------
     Saves and unzips downloaded files in directory: outdir + country-latest-free-shp
     """
     start = datetime.now()
-    geofabrick_url = 'http://download.geofabrik.de/{}/{}-latest-free.shp.zip'.format(region.lower(), country.lower())
+    geofabrick_url = 'http://download.geofabrik.de/{}/{}-latest-free.shp.zip'.format(
+        region.lower(), country.lower())
     r = requests.get(geofabrick_url, allow_redirects=True)
     try:
         assert r.status_code == 200
     except AssertionError:
         print('ENSURE THERE IS INTERNET AND/OR REGION AND COUNTRY NAMES ARE CORRECT')
-        return 
-    
+        return
 
     assert outdir.exists(), 'ENSURE OUTPUT DIRECTORY EXISTS'
     outfile = Path(outdir).joinpath(geofabrick_url.split("/")[-1])
     print('Saving file .............')
     open(outfile, 'wb').write(r.content)
-    
+
     print()
     print('Unzipping file .............')
-    extract_outdir = Path(outdir).joinpath(outfile.parts[-1].split(".")[0] + "-shp").mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(outfile,"r") as zip_ref:
+    extract_outdir = Path(outdir).joinpath(
+        outfile.parts[-1].split(".")[0] + "-shp").mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(outfile, "r") as zip_ref:
         zip_ref.extractall(extract_outdir)
-    
+
     # Delete zipfile
     file_size = outfile .stat()[6]/1000000
     shutil.rmtree(outfile)
@@ -493,11 +521,7 @@ def download_osm_shapefiles(region, country, outdir):
     time_taken = (end - start).total_seconds/60
 
     print()
-    print('Downloading {} MB took {} minutes'.format(int(file_size)), int(time_taken))
+    print('Downloading {} MB took {} minutes'.format(
+        int(file_size)), int(time_taken))
 
-    
     return extract_outdir
-
-
-
-    
