@@ -31,7 +31,7 @@ import boto3
 from botocore import UNSIGNED
 from botocore.config import Config
 
-import point_displacement as pod
+from . import point_displacement as pod
 
 
 def extract_impact_observ_lulc_tif(adm0_shp, output_dir, utm_zones, yr=None):

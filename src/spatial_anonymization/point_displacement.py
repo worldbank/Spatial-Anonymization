@@ -3,7 +3,7 @@ Created on Mar 6, 2023
 @author-1: Dunstan Matekenya
 @author-2: Andres
 """
-import utils
+from . import utils
 from pathlib import Path
 from datetime import datetime
 
