@@ -1,0 +1,37 @@
+unit_type: cluster
+method: population_adaptive
+max_distance: 2000.0
+urban_max_distance: null
+rural_max_distance: null
+rural_extra_max_distance: null
+rural_extra_proportion: 0.0
+min_distance: 0.0
+urban_min_distance: null
+rural_min_distance: null
+min_population: 1000
+population_search_max_radius: null
+population_step_m: 500.0
+admin_level: 2
+enforce_admin_boundary: true
+enforce_water_constraint: true
+water_constraint_strict: true
+enforce_road_constraint: false
+road_buffer_m: null
+lat_col: lat
+lon_col: lon
+urban_rural_col: null
+urban_value: null
+rural_value: null
+data_sources:
+  admin_boundary_source: gadm
+  admin_boundary_fallback: geoboundaries
+  population_source: worldpop
+  population_dataset_version: R2025A_v1
+  population_year: 2020
+  population_resolution: 100m
+  population_type: constrained
+  water_source: none
+  road_source: none
+  download_dir: /path/to/cache
+  cache_downloads: true
+  auto_download: true

@@ -3,6 +3,8 @@ Created on Mar 6, 2023
 @author-1: Dunstan Matekenya
 @author-2: Andres
 """
+import os
+os.environ["USE_PYGEOS"] = "1"
 from . import utils
 from pathlib import Path
 from datetime import datetime
@@ -18,6 +20,9 @@ from pyproj import CRS, Proj, Transformer, Geod
 from pyproj.aoi import AreaOfInterest
 from pyproj.database import query_utm_crs_info
 from shapely.geometry import Point, LineString
+from rasterstats import gen_zonal_stats
+import rasterio
+from collections import Counter
 
 
 class SimpleDisplacer(object):
@@ -25,16 +30,36 @@ class SimpleDisplacer(object):
     A  set of functions to displace household survey GPS coordinates
     in random direction and distance based on the DHS methodology.
     """
+    PARAM_DESCRIPTIONS = {
+        'urb_max_dist': 'Maximum distance(m) for anonymizing region for coordinates in urban areas',
+        'rur_max_dist': 'Maximum distance(m) for anonymizing region for coordinates in rural areas',
+        'rur_max_dist_subset': 'Maximum distance(m) for anonymizing region for a subset of coordinates in rural areas',
+        'urb_min_dist': 'Minimum distance(m) from original coordinates in urban areas',
+        'rur_min_dist': 'Minimum distance(m) from original coordinates in urban areas',
+        'maximum_tries': 'Number of times to keep trying when geenrated displaced coordinates do not meet requirements',
+        'apply_min_dist': 'Whether to apply minimum distance or not',
+        'rur_sub_prop': 'Proportion of rural cooridnates to apply large anonymizing zone',
+        'admin_reg': 'Admin region for constraining displaced coordinates',
+        'min_pop': 'Minimum number of people withing anonymizing region to avoid re-identification',
+        'check_waterbodies': 'Check to ensure generated coordinates dont fall on large water bodies',
+        'pop_check': 'Whether generated coordinates meet the minimum population threshold',
+        'max_runs': 'Maximum number of re-runs when some coordinates fail to get generated',
+        'utm_epsg_code': 'While some counties have multiple UTM zones, use this as default'
+        }
 
-    def __init__(self, params, input_coords, shp_adm_bounds, output_dir, lon_col, lat_col,
-                 urb_rur_col=None, rural_code=None, geodetic_crs=4326, unique_id=None):
+    def __init__(self, params, inputs, output_dir, lon_col, lat_col,
+                 urb_rur_col=None, rural_code=None, geodetic_crs='EPSG:4326', 
+                 unique_id=None):
         """
         Initializes object attributes
         Parameters
         ----------
         params(dict object)- provides displacement parameters such as maximum_distance, min_distance
-        input_coords (str/Path object) - Full path a CSV/STATA file with coordinates for processing
-        shp_adm_bounds (str/Path object) - Full path to admin regions for constraining displacements
+        inputs(dict) - Dict object containing the following inputs: 
+        {'pop_tif': (str/Path object) Full path to raster file with population counts, 
+        'shp_waterbodies': (str/Path object) Full path to shapefile of major water bodies,
+        'shp_adm_bounds': (str/Path object) Full path to shapefile of admin boundaries to use as constraining regions,
+        'input_coords': (str/Path object/Dataframe) Either pd.Dataframe or full path of coordinates to be anonymized
         output_dir - directory where to save results
         lon_col (str) - Column in the input file which has longitude (decimal degrees)
         lat_col (str) - Column in the input file which has latitude (decimal degrees)
@@ -43,19 +68,22 @@ class SimpleDisplacer(object):
         geodetic_crs - Geographic CRS as EPSG code for which the latitude and longitude were collected.
         The default is WGS84, code 4326.
         unique_id - Unique identifier for each row (e.g., household-ID)
-
         """
         # ensure that paths to files and files are are valid
-        if Path(input_coords).exists():
+        input_coords = inputs['input_coords']
+        if isinstance(input_coords, str) or (input_coords).exists():
             self.data_file = Path(input_coords)
+        elif isinstance(input_coords, pd.core.frame.DataFrame):
+            self.data_file = input_coords
         else:
-            print('PLEASE ENSURE THIS PATH: {} IS VALID'.format(input_coords))
+            print('PLEASE CHECK THE INPUT COORDS FILE/OBJECT')
 
+        shp_adm_bounds = inputs['shp_adm_bounds']
         if Path(shp_adm_bounds).exists():
             self.adm_file = Path(shp_adm_bounds)
         else:
             print('PLEASE ENSURE THIS PATH: {} IS VALID'.format(shp_adm_bounds))
-
+        
         if Path(output_dir).exists():
             self.output_dir = Path(output_dir)
         else:
@@ -84,6 +112,8 @@ class SimpleDisplacer(object):
         self.rur_min_dist = params['rur_min_dist']
         self.maximum_tries = params['maximum_tries']
         self.apply_min_dist = params['apply_min_dist']
+        self.max_runs = params['max_runs']
+        self.default_utm_epsg_code = params['utm_epsg_code']
 
         # Lets hold the coordinates and the admin regions
         # in these variables in case we need to use them
@@ -102,7 +132,45 @@ class SimpleDisplacer(object):
             self.datum_name = 'WGS 84'
         # column name for UTM CRS associated with each Lat/Lon
         self.proj_crs_col = 'utm_epsg_code'
+        self.pop_tif = inputs.get('pop_tif', None)
+        self.waterbodies_shp = inputs.get('shp_waterbodies', None)
+        self.min_pop = params.get('min_pop', None)
+        self.params = params
+        # temporary holding place as displaced coordinates
+        # are being genrated
+        self.temp_disp_coords = None
 
+    def print_params(self, out_fname):
+        """Print and save parameters
+        _extended_summary_
+        """
+        num = 1
+        params = self.params
+        if self.pop_tif:
+            params['pop_check'] = True
+        else:
+            params['pop_check'] = False
+        
+        if self.waterbodies_shp:
+            params['check_waterbodies'] = True
+        else:
+            params['check_waterbodies'] = False
+        
+        print('='*50)
+        print(' Running displacement with the following params')
+        print('='*50)
+        for k, v in params.items():
+            desc = self.PARAM_DESCRIPTIONS[k]
+            print('{}.{}-{}-{}'.format(num, k, v, desc))
+            num += 1
+        df = pd.DataFrame([params, self.PARAM_DESCRIPTIONS]).T.reset_index().rename(
+                            columns={0: 'Value', 'index':'Param/input', 1:'Description'})
+        df.to_csv(out_fname, index=False)
+        short_output_fpath = "/".join(out_fname.parts[6:])
+        print()
+        print('Params file saved to file: \n{}'.format(short_output_fpath))
+        print('-'*100)
+        
     def load_coordinates_data(self):
         """
         Load coordinates into a dataframe and do some preprocessing
@@ -113,13 +181,16 @@ class SimpleDisplacer(object):
         # =========================================
         # LOAD DATA AND DO PRELIMINARY CLEAN-UP
         # =========================================
-        df_hh_coords = None
-        if self.data_file.suffix == ".csv":
-            df_hh_coords = pd.read_csv(self.data_file)
-        elif self.data_file.suffix == ".dta":
-            df_hh_coords = pd.read_stata(self.data_file, convert_categoricals=False)
+        if isinstance(self.data_file, pd.core.frame.DataFrame):
+            df_hh_coords = self.data_file
         else:
-            print('PLEASE CONVERT THE COORDINATES FILE TO CSV OR STATA FILE')
+            df_hh_coords = None
+            if self.data_file.suffix == ".csv":
+                df_hh_coords = pd.read_csv(self.data_file)
+            elif self.data_file.suffix == ".dta":
+                df_hh_coords = pd.read_stata(self.data_file, convert_categoricals=False)
+            else:
+                print('PLEASE CONVERT THE COORDINATES FILE TO CSV OR STATA FILE')
 
         # set unique-id as string to avoid number issues
         df_hh_coords[self.id] = df_hh_coords[self.id].astype(str)
@@ -151,7 +222,9 @@ class SimpleDisplacer(object):
         # COLLAPSE TO EA LEVEL/ANOTHER LEVEL IF NEED TO
         # ====================================================
         df = self.coords_data
-        if df[self.id].value_counts().mean() > 5:
+        if df[self.id].nunique() == len(df):
+            pass
+        elif df[self.id].value_counts().mean() > 5:
             print()
             print('Grouping to {} level and calculating average coordinates'.format(self.id))
             print()
@@ -300,46 +373,114 @@ class SimpleDisplacer(object):
                                          crs=self.geodetic_epsg_code)
 
         # join the hh coordinates with admin bounds
-        gdf_adm_hh_coords = gpd.sjoin(left_df=gdf_adm, right_df=gdf_hh_coords, predicate='contains')
+        gdf_adm_hh_coords = gpd.sjoin(right_df=gdf_hh_coords, left_df=gdf_adm, op='contains')
 
         # Check that the two matched perfectly
-        assert len(gdf_adm_hh_coords) == len(df_hh_coords), 'Some of the hh did not match'
+        try:
+            assert len(gdf_adm_hh_coords) == len(df_hh_coords)
+        except AssertionError:
+            outstanding_id = set(list(df_hh_coords[self.id].values)) - set(list(gdf_adm_hh_coords[self.id].values))
+            print('SOME OF THE COORDINATES TO BE DISPLACED DID NOT MATCH WITH ADMIN REGIONS: {}'.format(list(outstanding_id)))
 
         return gdf_adm_hh_coords
 
-    def add_displaced_coordinates(self, row):
+    def add_displaced_coordinates(self, row, max_tries):
         """
         Helper function to apply across each row
         in the Geopandas dataframe from prepare_data(self) to generate displaced coordinates
         Parameters
         ----------
         row - A row in a Geopandas dataframe
-        num_tries - Number of times to try generating perturbed coordinates which are within a given admin region.
+        max_tries - Number of times to try generating perturbed coordinates which are within a given admin region.
         After this, we stop.
 
         Returns x_meters, y_meters, x_degrees, y_degrees. If num_tries exceeded, returns (-1, -1)
         -------
 
         """
-        orig_x, orig_y = row[self.x], row[self.y]
+        # Create Rasterio Object
+        if self.pop_tif: 
+            rd = rasterio.open(self.pop_tif)
+            transform = rd.meta['transform']
+            array = rd.read(1)
+            nodata_val = rd.meta['nodata']
+            array_data = np.where(array!=nodata_val, array, 0)
+        
+        # coordinates of original point
+        orig_x, orig_y = row[self.lon], row[self.lat]
+        
+        # polygon of admin region where the orig point falls
         polygon = row['geometry']
-        proj_crs = int(row[self.proj_crs_col])
+        
         max_dist = row['max_dist']
         min_dist = row['min_dist']
+        pop_threshold = self.min_pop
         num_tries = 0
+        failed_attempts = []
         while True:
-            new_x, new_y = displace_point(x=orig_x, y=orig_y, max_distance=max_dist, min_distance=min_dist)
-            new_x_deg, new_y_deg = meters_to_degrees(x=new_x, y=new_y, utm_crs_epsg=proj_crs,
-                                                     geodetic_crs_epsg=self.geodetic_epsg_code)
-            new_coords_geom = Point(new_x_deg, new_y_deg)
-            gdf_new_coords = gpd.GeoDataFrame([{'geometry': new_coords_geom}], crs=self.geodetic_epsg_code)
-            if polygon.contains(gdf_new_coords.iloc[0]['geometry']):
-                return new_x, new_y, new_x_deg, new_y_deg
+            new_lon, new_lat = displace_point_faster(x=orig_x, y=orig_y, max_distance=max_dist, min_distance=min_dist)
+            new_pt = Point(new_lon, new_lat)
+            gdf_new_pt = gpd.GeoDataFrame([{'geometry': new_pt, 'id': 'p1'}], crs=self.geodetic_epsg_code)
+            
+            # Admin zone check: checks whether newly created point falls within constraining
+            # admin zone
+            if polygon.contains(new_pt):
+                within_adm_zone = True
+            else:
+                within_adm_zone = False
+                failed_attempts.append('adm')
+                continue
+
+             # Waterbody check: whether this newly geenrated point doesnt fall on a large waterbody
+            if self.waterbodies_shp:
+                gdf_water = gpd.read_file(self.waterbodies_shp)
+                possible_matches = gpd.sjoin(gdf_new_pt, gdf_water, op='within')
+
+                if len(possible_matches) == 0:
+                    water_check = True
+                else:
+                    water_check = False
+                    failed_attempts.append('water')
+                    continue
+            else:
+                water_check = True
+            
+            # Population check: checks whether population withing n-km (where n = max_dist)
+            # is larger than pop_threshold (e.g., 500 people)
+            if self.pop_tif:
+                # create buffer 
+                point_shp_proj = gdf_new_pt.to_crs(self.default_utm_epsg_code)
+                point_shp_proj_buff = point_shp_proj.buffer(max_dist)
+                point_shp_proj_buff_wg84 = point_shp_proj_buff.to_crs(self.geodetic_epsg_code)
+
+                # Get intersection between buffer and admin region
+                geom_intersection = point_shp_proj_buff_wg84.intersection(polygon)
+                
+                pop = list(gen_zonal_stats(vectors=geom_intersection, raster=array_data, 
+                                               affine=transform, stats=['sum']))[0]['sum']
+                assert pop > 0, 'POPULATION ESTIMATES SHOULD BE ABOVE ZERO'
+                print(pop)
+                if pop > pop_threshold:
+                    pop_check = True
+                else:
+                    pop_check = False
+                    failed_attempts.append('pop')
+            else:
+                pop_check = True
+                pop = np.NaN
+            
+            if (within_adm_zone and pop_check and water_check):
+                return new_lon, new_lat, pop
             else:
                 pass
+            
             num_tries += 1
-            if num_tries >= self.maximum_tries:
-                return -1, -1, -1, -1
+            if num_tries >= max_tries:
+                if max_tries > 25:
+                    failed = Counter(failed_attempts)
+                    print('Failed to generate displacements for : {}-{},{}'.format(row[self.id], orig_x, orig_y))
+                    print(failed)
+                return -1, -1, -1
 
     def infer_projected_crs(self):
         """
@@ -380,6 +521,42 @@ class SimpleDisplacer(object):
 
         return df_hh_coords
 
+    def run_displacement_process(self, df_input, max_runs=5, max_tries=25):
+        """Helper to run displacemet process until all coordinates have been generated or give-up after max_runs
+
+        Parameters
+        ----------
+        max_runs - When some coordinates come with no displacements after exhausting maximum_num tries, 
+        this param determines how many times to try again for those coordinates
+        max_tries - Maximum number of tries.
+        """
+        print()
+        print('Run-{} ......'.format(max_runs))
+        df_input['tmp_new_xy'] = df_input.apply(lambda x: self.add_displaced_coordinates(x, max_tries=max_tries), axis=1)
+        df_input[self.disp_lon] = df_input.tmp_new_xy.apply(lambda x: x[0])
+        df_input[self.disp_lat] = df_input.tmp_new_xy.apply(lambda x: x[1])
+        df_input['pop'] = df_input.tmp_new_xy.apply(lambda x: x[2])
+        df_failed = df_input[df_input[self.disp_lon] == -1]
+        df_success = df_input[df_input[self.disp_lon] != -1]
+        # initialize temporary dataframe to hold completed displacements
+        if max_runs == self.max_runs:
+            self.temp_disp_coords = pd.DataFrame(columns=df_input.columns)
+        if len(df_failed) == 0:
+            self.temp_disp_coords = self.temp_disp_coords.append(df_success)
+            return df_failed
+        elif max_runs == 0:
+            print()
+            print('Exhausted number of tries, existing without finishing all coordinates')
+            print('{} points couldnt be displaced'.format(len(df_failed)))
+            self.temp_disp_coords = self.temp_disp_coords.append(df_success)
+            print(df_failed[[self.id, self.urb_rur_col, self.lon, self.lat]])
+            return df_failed 
+        else:
+            print('{} coords failed to be generated, re-running'.format(len(df_failed)))
+            self.temp_disp_coords = self.temp_disp_coords.append(df_success)
+            max_tries += 5
+            return self.run_displacement_process(df_input=df_failed, max_runs=max_runs-1, max_tries=max_tries)
+
     def run_displacer(self, output_file):
         """
         Calls all the required functions to generate the displacements.
@@ -399,42 +576,41 @@ class SimpleDisplacer(object):
         # ========================
         # PREPARE THE DATA
         # ========================
-        print('PREPARING DATA FOR DISPLACEMENT...........')
-        print('#' * 50, "\n")
+        output_params = self.output_dir.joinpath('disp-params-{}.csv'.format(output_file.parts[-1][:-4]))
+        self.print_params(out_fname=output_params)
+        print()
+        print('Preparing data for displacement...')
 
         start = datetime.now()
         df = self.prepare_data()
-
+        
         # =========================
         # ADD DISPLACED COORDINATES
         # ==========================
-        print('ADDING DISPLACED POINTS...........')
-        print('#' * 50, "\n")
-        df['tmp_new_xy'] = df.apply(lambda x: self.add_displaced_coordinates(x), axis=1)
-        df[self.disp_x] = df.tmp_new_xy.apply(lambda x: x[0])
-        df[self.disp_y] = df.tmp_new_xy.apply(lambda x: x[1])
-        df[self.disp_lon] = df.tmp_new_xy.apply(lambda x: x[2])
-        df[self.disp_lat] = df.tmp_new_xy.apply(lambda x: x[3])
-        df.drop(columns=['geometry', 'tmp_new_xy'], inplace=True)
+        print('Adding displacements to {:,} points ....'.format(len(df)))
+        df_failed = self.run_displacement_process(df_input=df, max_runs=self.max_runs, max_tries=self.maximum_tries)
+        
+        # Get coordinates which managed to generate displacements
+        df_success = self.temp_disp_coords
+        df_success.drop(columns=['geometry', 'tmp_new_xy'], inplace=True)
+        
+        # ======================================================
+        # SAVE THE CSV FILE-COORDS WITH NO DISPLACED COORDS
+        # ======================================================
+        print('Saving outputs...')
+        out_failed = self.output_dir.joinpath('{}-failed.csv'.format(output_file.parts[-1][:-4]))
+        if len(df_failed) > 0:
+            df_failed = df_failed[[self.id, self.urb_rur_col, self.lon, self.lat]]
+            df_failed.to_csv(out_failed, index=False)
+            short_fpath = "/".join(out_failed.parts[6:])
+            print('Coordinates with no displacement saved to file: \n {}'.format(short_fpath))
+        else:
+            print('Displacements generated for all coordinates in input')
+            pass
 
-        # =========================
-        # RUN CHECKS
-        # =========================
-        print('RUNNING SOME CHECKS .........')
-        print('#' * 50, "\n")
-        # see if any coordinates failed to generate displacements
-        num_failed = len(df[df[self.disp_x] == -1])
-        try:
-            assert num_failed == 0
-        except AssertionError:
-            print('SOME POINTS COULD NOT BE GENERATED, RE-RUN WITH HIGHER MAXIMUM TRIES')
-            return
-
-        # =========================
-        # SAVE THE CSV FILE
-        # =========================
-        print('SAVING OUTPUTS .........')
-        print('#' * 50, "\n")
+        # ======================================================
+        # SAVE THE CSV FILE-COORDS WITH SUCCESSFUL DISPLACEMENT
+        # ======================================================
         if Path(output_file).parents[0].exists():
             output_csv_fpath = output_file
         else:
@@ -442,30 +618,36 @@ class SimpleDisplacer(object):
             output_csv_fpath = self.output_dir.joinpath(output_csv_filename)
 
         # Remove unnecessary columns before saving
-        shp_cols = self.adm_data.columns
-        keep_cols = df.columns.difference(shp_cols)
-        df = df[keep_cols]
+        keep_cols = [self.id, self.urb_rur_col, self.lon, self.lat, self.disp_lon, 
+                     self.disp_lat, 'max_dist', 'pop']
+        df = df_success[keep_cols]
 
         df.to_csv(output_csv_fpath, index=False)
+        short_fpath = "/".join(output_csv_fpath.parts[6:])
+        print('Output CSV file with anonymized coordinates saved to file: \n {}'.format(short_fpath))
+
+    
+        end = datetime.now()
+        time_taken = (end - start).total_seconds()/60
         print()
-        print('Output CSV file with anonymized coordinates saved to file: \n {}'.format(output_csv_fpath))
+        print('Processing {:,} coordinates with {} maximum tries per coordinate took {} minutes'.format(
+            len(df), self.maximum_tries, int(time_taken)))
+        print("-" * 100)
         # update coordinates data with this dataframe
         self.coords_data_disp = df
 
         # =========================
         # RUN SUMMARY STATS
         # =========================
-        self.generate_displacement_stats(stats=['mean', 'median', 'max', 'min'])
-
-        end = datetime.now()
-        time_taken = (end - start).total_seconds() / 60
         print()
-        print('----------------- DONE WITH PROCESSING -------------------', "\n")
-        print('Processing {:,} coordinates with {} maximum tries per coordinate took {} minutes'.format(
-            len(df), self.maximum_tries, int(time_taken)))
-        print("=" * 80)
+        print('='*60)
+        print(' Generating summary statistics to check the displacement')
+        print('='*60)
+        self.generate_displacement_stats(stats=['mean', 'median', 'max', 'min'], output_fname=output_file)
 
-    def generate_displacement_stats(self, stats=None):
+        return df
+
+    def generate_displacement_stats(self, stats=None, output_fname=None):
         """
         Run diagnostic summary statistics on distance between original
         and displaced point
@@ -480,11 +662,9 @@ class SimpleDisplacer(object):
         # ===================================
         # CALCULATE DISTANCES
         # ===================================
+        dist_col = 'dist2origin'
         df_res = self.coords_data_disp
-        df_res['dist_planar'] = df_res.apply(lambda x:
-                                             distance_planar_points((x[self.x], x[self.y]),
-                                                                    (x[self.disp_x], x[self.disp_y])), axis=1)
-        df_res['dist_geo'] = df_res.apply(lambda x:
+        df_res[dist_col] = df_res.apply(lambda x:
                                           distance_latlon_points((x[self.lon], x[self.lat]),
                                                                  (x[self.disp_lon], x[self.disp_lat])), axis=1)
 
@@ -495,31 +675,35 @@ class SimpleDisplacer(object):
         # GET SUMMARY STATISTICS
         # ===================================
         df_rur = df_res.query('{} == {}'.format(self.urb_rur_col, self.rural_val))
-        assert len(df_res[self.urb_rur_col].unique()) == 2, 'THERE SHOULD BE ONLY TWO URBAN/RURAL VALUES'
+        print()
+        print('Urban/rural distribution')
+        print('-'*25)
+        print(df_res[self.urb_rur_col].value_counts())
         urb_code = list(set(df_res[self.urb_rur_col].unique()) - {self.rural_val})[0]
         df_urb = df_res.query('{} == {}'.format(self.urb_rur_col, urb_code))
 
+        
         res = []
         if 'mean' in stats:
-            urb_mean = df_urb['dist_planar'].mean()
-            rur_mean = df_rur['dist_planar'].mean()
+            urb_mean = df_urb[dist_col].mean()
+            rur_mean = df_rur[dist_col].mean()
             res.append({'stat': 'mean', 'area': 'urban', 'value': urb_mean})
             res.append({'stat': 'mean', 'area': 'rural', 'value': rur_mean})
         if 'median' in stats:
-            urb_med = df_urb['dist_planar'].median()
-            rur_med = df_rur['dist_planar'].median()
+            urb_med = df_urb[dist_col].median()
+            rur_med = df_rur[dist_col].median()
             res.append({'stat': 'median', 'area': 'urban', 'value': urb_med})
             res.append({'stat': 'median', 'area': 'rural', 'value': rur_med})
 
         if 'min' in stats or 'minimum' in stats:
-            urb_min = df_urb['dist_planar'].min()
-            rur_min = df_rur['dist_planar'].min()
+            urb_min = df_urb[dist_col].min()
+            rur_min = df_rur[dist_col].min()
             res.append({'stat': 'minimum', 'area': 'urban', 'value': urb_min})
             res.append({'stat': 'minimum', 'area': 'rural', 'value': rur_min})
 
         if 'max' in stats or 'maximum' in stats:
-            urb_max = df_urb['dist_planar'].max()
-            rur_max = df_rur['dist_planar'].max()
+            urb_max = df_urb[dist_col].max()
+            rur_max = df_rur[dist_col].max()
             res.append({'stat': 'maximum', 'area': 'urban', 'value': urb_max})
             res.append({'stat': 'maximum', 'area': 'rural', 'value': rur_max})
 
@@ -528,19 +712,24 @@ class SimpleDisplacer(object):
         # ===================================
         df_stats = pd.DataFrame(res)
         print()
-        print("=" * 50)
-        print('STATISTICS BASED OFF ORIGINAL VS. DISPLACED COORDS')
-        print("=" * 50)
-        print(df_stats)
+        print('Stats for distance between original & displaced coords-Urban')
+        print("-" * 62)
+        print(df_stats.query('area == "urban"'))
+        
+        print()
+        print('Stats for distance between original & displaced coords-Rural')
+        print("-" * 62)
+        print(df_stats.query('area == "rural"'))
 
-        output_csv_filename = "{}_disp_stats.csv".format(self.data_file.parts[-1].split(".")[0])
+        output_csv_filename = "{}-disp-stats.csv".format(output_fname.parts[-1][:-4])
         output_csv_fpath = self.output_dir.joinpath(output_csv_filename)
 
         print()
-        print('Summary statistics saved to: \n {}'.format(output_csv_fpath))
+        print('Summary displacement statistics saved to: \n {}'.format("/".join(output_csv_fpath.parts[6:])))
+        print('-'*100)
         df_stats.to_csv(output_csv_fpath, index=False)
 
-    def run_sanity_check(self):
+def run_sanity_check(self):
         df = self.original_coords
 
         df[self.id] = df[self.id].astype(str)
@@ -550,6 +739,35 @@ class SimpleDisplacer(object):
         df_tmp = df.merge(df_proc_coords, on=self.id, how='inner', indicator=True)
 
         assert len(df_tmp) == len(df_tmp), 'SHOULD HAVE SAME LENGTH'
+
+
+def displace_point_with_angle(x, y, distance, angle_degrees):
+    """
+    calculates new point up to a given distance away
+    from original point given an angle.
+    Parameters
+    ----------
+    x - Coordinate (Eastings) of point given in meters
+    y - Coordinnate (Northings) of point given in meters
+    mdistance - Maximum allowed distance (meters) to displace point
+
+    Returns coordinates of the new displaced point
+    -------
+
+    """
+    # Convert the random angle from degrees to radians
+    angle_radian = angle_degrees * (math.pi / 180)
+
+    # Generate the offset by applying trig formulas (law of cosines) using the distance as
+    # the hypotenuse solving for the other sides
+    x_offset = math.sin(angle_radian) * distance
+    y_offset = math.cos(angle_radian) * distance
+
+    # Add the offset to the original coordinates (in meters)
+    x_new = x + x_offset
+    y_new = y + y_offset
+
+    return x_new, y_new
 
 
 def displace_point(x, y, max_distance, min_distance=0):
@@ -590,6 +808,36 @@ def displace_point(x, y, max_distance, min_distance=0):
     y_new = y + y_offset
 
     return x_new, y_new
+
+
+def displace_point_faster(x, y, max_distance, min_distance=0):
+    """
+    calculates new point up to a given distance away
+    from original point.  All values should be provided
+    in meters
+    Parameters
+    ----------
+    x - Coordinate (Longitude)) of point given in meters
+    y - Coordinnate (Latitude) of point given in meters
+    min_distance - minimum allowed distance (meters) to displace point
+    max_distance - Maximum allowed distance (meters) to displace point
+
+    Returns coordinates of the new displaced point
+    -------
+
+    """
+    # Generate a random angle between 0 and 360
+    angle_degree = random.randint(0, 360)
+
+    # Generate a random distance by multiplying the max distance by a random number between 0 and 1
+    while True:
+        distance = random.random() * max_distance
+        if distance > min_distance:
+            break
+
+    disp_lon, disp_lat = utils.terminal_coordinates_faster(lat1=y, lon1=x, d=distance/1000, bearing=angle_degree, R=6371)
+
+    return disp_lon, disp_lat
 
 
 def distance_planar_points(pt1, pt2):
@@ -676,8 +924,11 @@ def meters_to_degrees(x, y, utm_crs_epsg, geodetic_crs_epsg=4326):
     lat, lon = transformer.transform(x, y)
 
     # Ensure lon and lat values are valid
-    assert (360 > lon > -360), 'longitude outside of wrapping bounds'
-    assert (180 > lat > -180), 'latitude outside of wrapping bounds'
+    try:
+        assert (360 >= lon >= -360)
+        assert (180 >= lat >= -180)
+    except AssertionError:
+        print('LONGITUDE AND/OR LATITUDE OUTSIDE OF WRAPPING BOUNDS')
 
     return lon, lat
 
@@ -748,9 +999,9 @@ def generate_displacement_stats(df_disp, x, y, x_disp, y_disp, urb_rur_col, rura
     # ===================================
     df_stats = pd.DataFrame(res)
     print()
-    print("=" * 50)
-    print('STATISTICS BASED OFF ORIGINAL VS. DISPLACED COORDS')
-    print("=" * 50)
+    print("=" * 65)
+    print(' Stats based off distance between original & displaced coords')
+    print("=" * 65)
     print(df_stats)
 
     return df_stats
