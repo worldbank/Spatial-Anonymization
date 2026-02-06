@@ -22,15 +22,15 @@ from typing import Optional, Tuple
 import pandas as pd
 from shapely.geometry import Point
 
-from spatial_anonymization.config import AnonymizationConfig
-from spatial_anonymization.inputs_manager import InputsManager
-from spatial_anonymization.geo_utils import displace_point_geodesic
-from spatial_anonymization.radius import (
+from spatial_anonymization.config.params import AnonymizationParams
+from spatial_anonymization.data.inputs_manager import InputsManager
+from spatial_anonymization.geoprocessing.geo_utils import displace_point_geodesic
+from spatial_anonymization.geoprocessing.radius import (
     sample_dhs_radius,
     sample_donut_radius,
 )
-from spatial_anonymization.population import find_radius_for_population
-from spatial_anonymization.constraints import passes_constraints
+from spatial_anonymization.geoprocessing.population import find_radius_for_population
+from spatial_anonymization.geoprocessing.constraints import passes_constraints
 
 
 class SurveyAnonymizer:
@@ -42,14 +42,14 @@ class SurveyAnonymizer:
     def __init__(
         self,
         *,
-        config: AnonymizationConfig,
+        config: AnonymizationParams,
         inputs: InputsManager,
         max_attempts: int = 50,
         random_seed: Optional[int] = None,
     ):
         """
         Args:
-            config: AnonymizationConfig defining anonymization policy.
+            config: AnonymizationParams defining anonymization policy.
             inputs: InputsManager providing resolved spatial layers.
             max_attempts: Maximum candidate attempts per point.
             random_seed: Optional seed for reproducibility.

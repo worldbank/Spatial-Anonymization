@@ -11,9 +11,12 @@ __version__ = "1.0.0"
 from spatial_anonymization.api import anonymize_survey_data, anonymize_survey_data_from_config
 
 # Core classes for advanced usage
-from spatial_anonymization.anonymizer import SurveyAnonymizer
-from spatial_anonymization.config import AnonymizationConfig, DataSourcesConfig
-from spatial_anonymization.inputs_manager import InputsManager
+from spatial_anonymization.core.anonymizer import SurveyAnonymizer
+from spatial_anonymization.config.params import AnonymizationParams, DataSourcesConfig
+from spatial_anonymization.data.inputs_manager import InputsManager
+
+# Presets module - import from config submodule
+from spatial_anonymization.config import presets
 
 # Make commonly used items available at package level
 __all__ = [
@@ -22,7 +25,9 @@ __all__ = [
     "anonymize_survey_data_from_config",
     # Advanced classes
     "SurveyAnonymizer",
-    "AnonymizationConfig",
+    "AnonymizationParams",
     "DataSourcesConfig",
     "InputsManager",
+    # Presets module (use: from spatial_anonymization.config.presets import DHS, WB_LSMS)
+    "presets",
 ]

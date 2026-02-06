@@ -2,7 +2,7 @@
 import pandas as pd
 from typing import Iterable, Optional
 
-from spatial_anonymization.geo_utils import distance_points
+from spatial_anonymization.geoprocessing.geo_utils import distance_points
 
 
 def displacement_statistics(

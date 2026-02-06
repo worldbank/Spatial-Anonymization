@@ -3,7 +3,7 @@ High-level user-facing API for spatial anonymization.
 
 This module provides simplified convenience functions for common
 anonymization workflows, abstracting away the complexity of
-creating InputsManager and AnonymizationConfig objects.
+creating InputsManager and AnonymizationParams objects.
 """
 
 from pathlib import Path
@@ -12,9 +12,9 @@ from typing import Optional, Union, Literal
 import geopandas as gpd
 import pandas as pd
 
-from spatial_anonymization.anonymizer import SurveyAnonymizer
-from spatial_anonymization.config import AnonymizationConfig
-from spatial_anonymization.inputs_manager import InputsManager
+from spatial_anonymization.core.anonymizer import SurveyAnonymizer
+from spatial_anonymization.config.params import AnonymizationParams
+from spatial_anonymization.data.inputs_manager import InputsManager
 
 
 def anonymize_survey_data(
@@ -55,7 +55,7 @@ def anonymize_survey_data(
     Anonymize survey GPS coordinates with a simplified interface.
 
     This function provides a streamlined way to anonymize survey data
-    without manually creating InputsManager and AnonymizationConfig objects.
+    without manually creating InputsManager and AnonymizationParams objects.
 
     Args:
         df (DataFrame):
@@ -241,8 +241,8 @@ def anonymize_survey_data(
             import warnings
             warnings.warn(f"Failed to download water bodies: {e}")
 
-    # Create AnonymizationConfig
-    config = AnonymizationConfig(
+    # Create AnonymizationParams
+    config = AnonymizationParams(
         method=method,
         unit_type=unit_type,
         max_distance=max_distance,
@@ -252,9 +252,6 @@ def anonymize_survey_data(
         enforce_admin_boundary=enforce_admin_boundary,
         enforce_water_constraint=enforce_water_constraint,
         enforce_road_constraint=enforce_road_constraint,
-        urban_rural_col=urban_col,
-        urban_value=urban_value,
-        rural_value=rural_value,
     )
 
     # Create anonymizer
@@ -279,8 +276,13 @@ def anonymize_survey_data(
 
 def anonymize_survey_data_from_config(
     df: pd.DataFrame,
-    config: AnonymizationConfig,
+    config: AnonymizationParams,
     *,
+    lon_col: str = "lon",
+    lat_col: str = "lat",
+    urban_rural_col: Optional[str] = None,
+    urban_value: Optional[str] = "urban",
+    rural_value: Optional[str] = "rural",
     admin_boundaries: Optional[Union[str, Path, gpd.GeoDataFrame]] = None,
     country_iso3: Optional[str] = None,
     population_raster: Optional[Union[str, Path]] = None,
@@ -293,11 +295,10 @@ def anonymize_survey_data_from_config(
     out_lon_col: str = "lon_anon",
     out_lat_col: str = "lat_anon",
 ) -> pd.DataFrame:
-    """
-    Anonymize survey GPS coordinates using a complete AnonymizationConfig object.
+    """Anonymize survey GPS coordinates using a complete AnonymizationParams object.
 
     This function provides full control over anonymization policy and data sources
-    by accepting a pre-configured AnonymizationConfig object (which includes
+    by accepting a pre-configured AnonymizationParams object (which includes
     DataSourcesConfig). Use this for:
     - Fine-grained control over all anonymization parameters
     - Reproducible workflows using saved YAML/JSON configurations
@@ -308,9 +309,19 @@ def anonymize_survey_data_from_config(
     Args:
         df (DataFrame):
             Input survey data with GPS coordinates.
-        config (AnonymizationConfig):
+        config (AnonymizationParams):
             Complete configuration object including anonymization policy
             and data sources (config.data_sources).
+        lon_col (str):
+            Name of longitude column. Default: "lon".
+        lat_col (str):
+            Name of latitude column. Default: "lat".
+        urban_rural_col (str, optional):
+            Column name indicating urban/rural classification.
+        urban_value (str):
+            Value in urban_rural_col representing urban areas. Default: "urban".
+        rural_value (str):
+            Value in urban_rural_col representing rural areas. Default: "rural".
         admin_boundaries (str, Path, or GeoDataFrame, optional):
             Administrative boundaries. If None, uses country_iso3 and
             config.data_sources settings to download.
@@ -343,7 +354,7 @@ def anonymize_survey_data_from_config(
 
     Examples:
         Load configuration from YAML file:
-        >>> config = AnonymizationConfig.from_yaml("my_config.yaml")
+        >>> config = AnonymizationParams.from_yaml("my_config.yaml")
         >>> df_anon = anonymize_survey_data_from_config(
         ...     df=survey_data,
         ...     config=config,
@@ -358,7 +369,7 @@ def anonymize_survey_data_from_config(
         ...     population_year=2020,
         ...     water_source="none"
         ... )
-        >>> config = AnonymizationConfig(
+        >>> config = AnonymizationParams(
         ...     method="dhs",
         ...     unit_type="household",
         ...     urban_max_distance=2000,
@@ -447,13 +458,13 @@ def anonymize_survey_data_from_config(
         random_seed=random_seed,
     )
 
-    # Run anonymization using column names from config
+    # Run anonymization using column names from function parameters
     return anonymizer.anonymize_dataframe(
         df,
-        lon_col=config.lon_col,
-        lat_col=config.lat_col,
+        lon_col=lon_col,
+        lat_col=lat_col,
         group_id_col=group_id_col,
-        urban_col=config.urban_rural_col,
+        urban_col=urban_rural_col,
         out_lon_col=out_lon_col,
         out_lat_col=out_lat_col,
     )

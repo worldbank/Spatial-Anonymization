@@ -10,7 +10,7 @@ import pytest
 from pathlib import Path
 import tempfile
 
-from spatial_anonymization.inputs_manager import InputsManager
+from spatial_anonymization.io.inputs_manager import InputsManager
 
 
 # Path to download-test directory
