@@ -19,14 +19,14 @@ Available presets:
 Usage:
     ```python
     from spatial_anonymization.config.presets import DHS, WB_LSMS, get_preset, list_presets
-    from spatial_anonymization import anonymize_survey_data_from_config
+    from spatial_anonymization import anonymize_survey_coordinates
     
     # Use preset directly
-    df_anon = anonymize_survey_data_from_config(df, config=DHS, country_iso3="MWI")
+    df_anon = anonymize_survey_coordinates(df, country_iso3="MWI", config=DHS)
     
     # Customize a preset
     from dataclasses import replace
-    custom_config = replace(DHS, max_distance=3000, lat_col="latitude")
+    custom_config = replace(DHS, max_distance=3000)
     
     # Discover available presets
     list_presets()
@@ -97,8 +97,8 @@ Customization Examples:
     # Increase urban displacement to 3km
     custom = replace(DHS, urban_max_distance=3000)
     
-    # Change column names to match your data
-    custom = replace(DHS, lat_col="latitude", lon_col="longitude")
+    # Disable water constraint
+    custom = replace(DHS, enforce_water_constraint=False)
     
     # Use for household-level data
     custom = replace(DHS, unit_type="household")
