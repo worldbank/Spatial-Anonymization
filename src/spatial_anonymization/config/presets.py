@@ -45,7 +45,6 @@ from spatial_anonymization.config.params import AnonymizationParams
 # =========================================================================
 
 DHS = AnonymizationParams(
-    unit_type="cluster",
     method="dhs",
     
     # Distance policy - Standard DHS approach
@@ -84,9 +83,8 @@ Key Features:
     - Avoids water bodies when displacing points
     
 When to Use:
-    - DHS-style household or health surveys
+    - DHS-style surveys requiring standardized displacement
     - When compliance with DHS data dissemination standards is required
-    - Cluster-level or household-level GPS anonymization
     - Multi-country surveys requiring standardized approach
     
 Customization Examples:
@@ -99,15 +97,11 @@ Customization Examples:
     
     # Disable water constraint
     custom = replace(DHS, enforce_water_constraint=False)
-    
-    # Use for household-level data
-    custom = replace(DHS, unit_type="household")
     ```
 """
 
 
 WB_LSMS = AnonymizationParams(
-    unit_type="cluster",
     method="dhs",
     
     # Distance policy - World Bank LSMS approach
@@ -161,9 +155,6 @@ Customization Examples:
     
     # Reduce rural extra proportion to 5%
     custom = replace(WB_LSMS, rural_extra_proportion=0.05)
-    
-    # Use for household-level data
-    custom = replace(WB_LSMS, unit_type="household")
     ```
 """
 

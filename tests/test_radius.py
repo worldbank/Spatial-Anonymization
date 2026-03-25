@@ -1,6 +1,6 @@
 import numpy as np
 
-from spatial_anonymization.radius import (
+from spatial_anonymization.geospatial.radius import (
     sample_dhs_radius,
     sample_donut_radius,
 )

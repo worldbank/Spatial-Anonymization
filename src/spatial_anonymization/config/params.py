@@ -189,20 +189,6 @@ class AnonymizationParams:
     deduplication, CRS handling) is expected to occur upstream.
     """
 
-    # ==================================================================
-    # INTERPRETATION OF INPUT COORDINATES
-    # ==================================================================
-
-    unit_type: Literal["household", "cluster"] = field(
-        metadata={
-            "description": (
-                "Type of spatial unit being anonymized. "
-                "'household' applies stricter displacement policies, "
-                "while 'cluster' is intended for anonymized cluster centroids."
-            )
-        }
-    )
-
     method: Literal["dhs", "donut", "population_adaptive"] = field(
         metadata={
             "description": (

@@ -6,14 +6,18 @@ anonymization workflows, abstracting away the complexity of
 creating InputsManager and AnonymizationParams objects.
 """
 
+import pandas as pd
+from dataclasses import replace as dc_replace
 from pathlib import Path
-from typing import Optional, Union, Literal
+from typing import Optional, Union, Literal, Hashable
+
 
 import geopandas as gpd
 import pandas as pd
 
 from spatial_anonymization.core.anonymizer import SurveyAnonymizer
 from spatial_anonymization.config.params import AnonymizationParams
+from spatial_anonymization.config.presets import get_preset
 from spatial_anonymization.data.inputs_manager import InputsManager
 
 
@@ -34,28 +38,28 @@ def anonymize_survey_coordinates(
     urban_value: Optional[str] = "urban",
     rural_value: Optional[str] = "rural",
     # Individual anonymization params (used if config is None)
-    method: Literal["dhs", "donut", "population_adaptive"] = "dhs",
-    unit_type: Literal["household", "cluster"] = "household",
-    max_distance: float = 2000.0,
-    min_distance: float = 0.0,
+    # When None, values inherit from the preset (DHS by default).
+    method: Optional[Literal["dhs", "donut", "population_adaptive"]] = None,
+    max_distance: Optional[float] = None,
+    min_distance: Optional[float] = None,
     urban_max_distance: Optional[float] = None,
     rural_max_distance: Optional[float] = None,
     rural_extra_max_distance: Optional[float] = None,
-    rural_extra_proportion: float = 0.0,
-    admin_level: int = 2,
+    rural_extra_proportion: Optional[float] = None,
+    admin_level: Optional[int] = None,
     # Download and constraint options
     population_year: int = 2025,
-    enforce_admin_boundary: bool = True,
-    enforce_water_constraint: bool = True,
-    enforce_road_constraint: bool = False,
+    enforce_admin_boundary: Optional[bool] = None,
+    enforce_water_constraint: Optional[bool] = None,
+    enforce_road_constraint: Optional[bool] = None,
     # Execution options
     utm_epsg: Optional[int] = None,
     max_attempts: int = 50,
     random_seed: Optional[int] = None,
+    n_workers: Optional[int] = None,
     out_lon_col: str = "lon_anon",
     out_lat_col: str = "lat_anon",
-    group_id_col: Optional[str] = None,
-    working_dir: Optional[str] = None,
+    output_dir: Optional[str] = None,
 ) -> pd.DataFrame:
     """
     Anonymize survey GPS coordinates.
@@ -96,60 +100,61 @@ def anonymize_survey_coordinates(
             Value in urban_rural_col representing urban areas. Default: "urban".
         rural_value (str):
             Value in urban_rural_col representing rural areas. Default: "rural".
-        method (str):
+        method (str, optional):
             Anonymization method: "dhs", "donut", or "population_adaptive".
-            Only used if config is None. Default: "dhs".
-        unit_type (str):
-            Type of spatial unit: "household" or "cluster".
-            Only used if config is None. Default: "household".
-        max_distance (float):
-            Maximum displacement distance in meters.
-            Only used if config is None. Default: 2000.0.
-        min_distance (float):
+            Selects the preset to use as base config. Default: None (uses "dhs").
+        max_distance (float, optional):
+            Fallback maximum displacement distance in meters.
+            If None, inherits from preset. DHS default: 5000.
+        min_distance (float, optional):
             Minimum displacement distance in meters (for donut method).
-            Only used if config is None. Default: 0.0.
+            If None, inherits from preset. DHS default: 0.0.
         urban_max_distance (float, optional):
             Maximum distance for urban areas.
-            Only used if config is None.
+            If None, inherits from preset. DHS default: 2000.
         rural_max_distance (float, optional):
             Maximum distance for rural areas.
-            Only used if config is None.
+            If None, inherits from preset. DHS default: 5000.
         rural_extra_max_distance (float, optional):
             Larger maximum distance for rural subset (DHS-style).
-            Only used if config is None.
-        rural_extra_proportion (float):
+            If None, inherits from preset. DHS default: 10000.
+        rural_extra_proportion (float, optional):
             Proportion of rural points receiving extra displacement.
-            Only used if config is None. Default: 0.0.
-        admin_level (int):
+            If None, inherits from preset. DHS default: 0.01.
+        admin_level (int, optional):
             Administrative level (0=country, 1=region, 2=district, etc.).
-            Only used if config is None. Default: 2.
+            If None, inherits from preset. DHS default: 2.
         population_year (int):
             Year for WorldPop data when auto-downloading (2015-2030).
             Only used if config is None or when auto-downloading. Default: 2025.
-        enforce_admin_boundary (bool):
+        enforce_admin_boundary (bool, optional):
             Whether displaced points must stay within admin boundaries.
-            Only used if config is None. Default: True.
-        enforce_water_constraint (bool):
+            If None, inherits from preset. DHS default: True.
+        enforce_water_constraint (bool, optional):
             Whether to avoid water bodies. If True and water_boundaries is None,
-            auto-downloads from OSM. Only used if config is None. Default: True.
-        enforce_road_constraint (bool):
+            auto-downloads from OSM. If None, inherits from preset.
+            DHS default: True.
+        enforce_road_constraint (bool, optional):
             Whether to avoid roads. If True and roads is None,
-            auto-downloads from OSM. Only used if config is None. Default: False.
+            auto-downloads from OSM. If None, inherits from preset.
+            DHS default: False.
         utm_epsg (int, optional):
             UTM EPSG code for distance calculations. If None, inferred from admin boundaries.
         max_attempts (int):
             Maximum retry attempts per point. Default: 50.
         random_seed (int, optional):
             Random seed for reproducibility.
+        n_workers (int, optional):
+            Number of parallel worker processes. None = all CPU cores.
+            Set to 1 to force sequential execution.
         out_lon_col (str):
             Output column name for anonymized longitude. Default: "lon_anon".
         out_lat_col (str):
             Output column name for anonymized latitude. Default: "lat_anon".
-        group_id_col (str, optional):
-            Column identifying clusters/groups for cluster-level anonymization.
-        working_dir (str, optional):
-            Working directory for downloaded files and outputs.
-            Only used if config is None.
+        output_dir (str, optional):
+            Root output directory.  Creates an ``anonymization_outputs/``
+            sub-tree with ``processing_logs/``, ``intermediate_data/``,
+            and ``output_data/`` folders.
 
     Returns:
         DataFrame: Input data with added anonymized coordinate columns.
@@ -195,21 +200,53 @@ def anonymize_survey_coordinates(
     """
     # Create or use provided config
     if config is None:
-        # Build config from individual parameters
-        config = AnonymizationParams(
-            method=method,
-            unit_type=unit_type,
-            max_distance=max_distance,
-            min_distance=min_distance,
-            urban_max_distance=urban_max_distance,
-            rural_max_distance=rural_max_distance,
-            rural_extra_max_distance=rural_extra_max_distance,
-            rural_extra_proportion=rural_extra_proportion,
-            admin_level=admin_level,
-            enforce_admin_boundary=enforce_admin_boundary,
-            enforce_water_constraint=enforce_water_constraint,
-            enforce_road_constraint=enforce_road_constraint,
-        )
+        # Start from preset (default to DHS) and apply user overrides
+        preset_name = method if method is not None else "dhs"
+        base_config = get_preset(preset_name)
+
+        # Collect only the parameters the caller explicitly set (non-None)
+        overrides = {}
+        if method is not None:
+            overrides["method"] = method
+        if max_distance is not None:
+            overrides["max_distance"] = max_distance
+        if min_distance is not None:
+            overrides["min_distance"] = min_distance
+        if urban_max_distance is not None:
+            overrides["urban_max_distance"] = urban_max_distance
+        if rural_max_distance is not None:
+            overrides["rural_max_distance"] = rural_max_distance
+        if rural_extra_max_distance is not None:
+            overrides["rural_extra_max_distance"] = rural_extra_max_distance
+        if rural_extra_proportion is not None:
+            overrides["rural_extra_proportion"] = rural_extra_proportion
+        if admin_level is not None:
+            overrides["admin_level"] = admin_level
+        if enforce_admin_boundary is not None:
+            overrides["enforce_admin_boundary"] = enforce_admin_boundary
+        if enforce_water_constraint is not None:
+            overrides["enforce_water_constraint"] = enforce_water_constraint
+        if enforce_road_constraint is not None:
+            overrides["enforce_road_constraint"] = enforce_road_constraint
+
+        config = dc_replace(base_config, **overrides) if overrides else base_config
+        print(f"[Config] Using '{preset_name}' preset" + (f" with overrides: {overrides}" if overrides else ""))
+
+    # Print effective displacement configuration
+    print(
+        f"[Config] Effective displacement settings:\n"
+        f"         method={config.method}\n"
+        f"         urban_max_distance={config.urban_max_distance}m, "
+        f"rural_max_distance={config.rural_max_distance}m\n"
+        f"         rural_extra_max_distance={config.rural_extra_max_distance}m, "
+        f"rural_extra_proportion={config.rural_extra_proportion}\n"
+        f"         min_distance={config.min_distance}m, "
+        f"max_distance(fallback)={config.max_distance}m\n"
+        f"         admin_level={config.admin_level}, "
+        f"enforce_admin={config.enforce_admin_boundary}, "
+        f"enforce_water={config.enforce_water_constraint}, "
+        f"enforce_road={config.enforce_road_constraint}"
+    )
     
     # Load admin boundaries if path provided
     admin_gdf = None
@@ -242,7 +279,14 @@ def anonymize_survey_coordinates(
     # Convert population_raster to string if Path
     pop_raster_path = str(population_raster) if population_raster else None
 
-    # Create InputsManager using config.data_sources
+    # Resolve download directory
+    download_dir = output_dir
+    auto_download = True
+    if hasattr(config, "data_sources"):
+        auto_download = getattr(config.data_sources, "auto_download", True)
+        download_dir = config.data_sources.working_dir or output_dir
+
+    # Create InputsManager
     inputs = InputsManager(
         country_iso3=country_iso3,
         admin_gdf=admin_gdf,
@@ -251,9 +295,30 @@ def anonymize_survey_coordinates(
         water_gdf=water_gdf,
         roads_gdf=roads_gdf,
         utm_epsg=utm_epsg,
-        auto_download=config.data_sources.auto_download if hasattr(config, 'data_sources') else True,
-        download_dir=config.data_sources.working_dir if hasattr(config, 'data_sources') else working_dir,
+        auto_download=auto_download,
+        download_dir=download_dir,
+        output_dir=output_dir,
     )
+
+    print(
+        f"[Inputs] admin={'yes' if inputs.has_admin() else 'no'}, "
+        f"population={'yes' if inputs.has_population() else 'no'}, "
+        f"water={'yes' if inputs.has_water() else 'no'}, "
+        f"roads={'yes' if inputs.has_roads() else 'no'}, "
+        f"utm_epsg={inputs.get_utm_epsg()}"
+    )
+
+    # Validate all survey points fall within the country boundary
+    n_input = len(df)
+    inputs.log_run_header(n_input)
+    df = inputs.filter_points_within_boundary(df, lon_col=lon_col, lat_col=lat_col)
+    n_dropped_boundary = n_input - len(df)
+
+    # Save config to processing_logs
+    if inputs.logs_dir is not None:
+        params_path = Path(inputs.logs_dir) / "params.yaml"
+        config.to_yaml(str(params_path))
+        inputs.log(f"CONFIG | Saved parameters to {params_path}")
 
     # Auto-download population if needed and not provided
     if config.method == "population_adaptive" and pop_raster_path is None:
@@ -282,23 +347,33 @@ def anonymize_survey_coordinates(
         inputs=inputs,
         max_attempts=max_attempts,
         random_seed=random_seed,
+        n_workers=n_workers,
     )
 
     # Run anonymization using column names from function parameters
-    return anonymizer.anonymize_dataframe(
+    print(f"[Anonymization] Starting for {len(df)} rows...")
+    result = anonymizer.anonymize_dataframe(
         df,
         lon_col=lon_col,
         lat_col=lat_col,
-        group_id_col=group_id_col,
         urban_col=urban_rural_col,
+        urban_value=urban_value,
+        rural_value=rural_value,
         out_lon_col=out_lon_col,
         out_lat_col=out_lat_col,
     )
 
+    # Write run summary
+    n_succeeded = int(result[out_lon_col].notna().sum())
+    n_failed_displacement = len(result) - n_succeeded
+    inputs.log_run_summary(
+        n_input=n_input,
+        n_dropped_boundary=n_dropped_boundary,
+        n_failed_displacement=n_failed_displacement,
+        n_succeeded=n_succeeded,
+    )
 
-import pandas as pd
-from typing import Hashable
-
+    return result
 
 def validate_input_schema(
     df: pd.DataFrame,

@@ -43,6 +43,8 @@ def is_in_water(
 ) -> bool:
     """Check whether a point falls inside a water body.
 
+    Uses spatial index for fast O(log n) lookup instead of brute-force scan.
+
     Args:
         point (Point): Candidate anonymized point.
         water_gdf (GeoDataFrame, optional): Water body geometries.
@@ -53,7 +55,8 @@ def is_in_water(
     if water_gdf is None or water_gdf.empty:
         return False
 
-    return bool(water_gdf.intersects(point).any())
+    hits = water_gdf.sindex.query(point, predicate="intersects")
+    return len(hits) > 0
 
 
 def is_on_road(
@@ -88,6 +91,7 @@ def passes_constraints(
     point: Point,
     *,
     admin_geom: Optional[Polygon] = None,
+    prepared_admin=None,
     water_gdf: Optional[gpd.GeoDataFrame] = None,
     roads_gdf: Optional[gpd.GeoDataFrame] = None,
     road_buffer_m: float = 0.0,
@@ -109,7 +113,10 @@ def passes_constraints(
     Returns:
         bool: True if all enabled constraints are satisfied.
     """
-    if admin_geom is not None and not is_within_admin(point, admin_geom):
+    if prepared_admin is not None:
+        if not prepared_admin.contains(point):
+            return False
+    elif admin_geom is not None and not is_within_admin(point, admin_geom):
         return False
 
     if water_gdf is not None and is_in_water(point, water_gdf):
