@@ -57,10 +57,8 @@ DHS = AnonymizationParams(
     # Donut (not used in standard DHS)
     min_distance=0.0,
     
-    # Population policy (optional for DHS)
-    min_population=None,
-    population_search_max_radius=None,
-    population_step_m=500,
+    # Population policy 
+    displaced_pop_radius_m=1000,            # 1km buffer for post-displacement pop count
     
     # Constraints
     enforce_admin_boundary=True,
@@ -117,7 +115,7 @@ WB_LSMS = AnonymizationParams(
     # Population policy - ensure minimum population in anonymization envelope
     min_population=500,                     # Minimum 500 people
     population_search_max_radius=15000,     # Search up to 15km if needed
-    population_step_m=500,                  # Expand in 500m increments
+    population_step_m=500,                  # Expand in 500m increments\n    displaced_pop_radius_m=1000,            # 1km buffer for post-displacement pop count
     
     # Constraints
     enforce_admin_boundary=True,

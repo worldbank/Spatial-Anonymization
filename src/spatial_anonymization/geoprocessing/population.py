@@ -11,14 +11,19 @@ Typical usage:
 - radius selection logic calls a PopulationProvider
 - SurveyDisplacer orchestrates how population is used
 """
-from typing import Callable
+from typing import Callable, List, Tuple
 from abc import ABC, abstractmethod
 from typing import Optional
 
+
 import geopandas as gpd
+import numpy as np
 import rasterio
 from rasterstats import zonal_stats
 from shapely.geometry import Point
+from shapely.ops import transform
+import pyproj
+from spatial_anonymization.geoprocessing.geo_utils import get_utm_epsg
 
 
 class PopulationProvider(ABC):
@@ -56,12 +61,18 @@ class RasterPopulationProvider(PopulationProvider):
     This implementation uses a raster dataset (e.g. WorldPop,
     HRSL, GPW) and zonal statistics to estimate population within
     a buffer around a point.
+
+    Raster metadata (CRS, nodata) and the array are read once at
+    init to avoid reopening the file on every call. Points are
+    projected to a metric CRS (UTM) for buffering in meters, then
+    buffers are reprojected back to the raster CRS for zonal stats.
     """
 
     def __init__(
         self,
         raster_path: str,
         raster_crs: Optional[str] = None,
+        utm_epsg: Optional[int] = None,
     ):
         """
         Initialize the raster population provider.
@@ -70,9 +81,31 @@ class RasterPopulationProvider(PopulationProvider):
             raster_path (str): Path to population raster (GeoTIFF).
             raster_crs (str, optional): CRS override if raster has
                 missing or incorrect CRS metadata.
+            utm_epsg (int, optional): EPSG code for a metric CRS used
+                for buffering. If None, estimated from the raster centroid.
         """
         self.raster_path = raster_path
-        self.raster_crs = raster_crs
+
+        # Cache raster data once
+        with rasterio.open(raster_path) as src:
+            self._raster_crs = raster_crs or src.crs
+            self._nodata = src.nodata
+            self._affine = src.transform
+            self._raster_array = src.read(1)
+
+            # Determine a metric CRS for buffering
+            if utm_epsg is not None:
+                self._metric_crs = f"EPSG:{utm_epsg}"
+            else:
+                # Estimate UTM zone from raster centroid
+                bounds = src.bounds
+                center_lon = (bounds.left + bounds.right) / 2
+                center_lat = (bounds.bottom + bounds.top) / 2
+                self._metric_crs = f"EPSG:{get_utm_epsg(center_lon, center_lat)}"
+
+        # Cache transformers for performance
+        self._to_metric = pyproj.Transformer.from_crs("EPSG:4326", self._metric_crs, always_xy=True).transform
+        self._to_raster = pyproj.Transformer.from_crs(self._metric_crs, self._raster_crs, always_xy=True).transform
 
     def population_within_radius(
         self,
@@ -83,45 +116,68 @@ class RasterPopulationProvider(PopulationProvider):
         """
         Estimate population within a radius using raster zonal stats.
 
-        Args:
-            lon (float): Longitude in decimal degrees.
-            lat (float): Latitude in decimal degrees.
-            radius_m (float): Buffer radius in meters.
-
-        Returns:
-            int: Estimated population count.
+        Projects the point to a metric CRS for buffering, then
+        reprojects the buffer to the raster CRS for extraction.
         """
-        # Create point GeoDataFrame (WGS84)
-        point_gdf = gpd.GeoDataFrame(
-            geometry=[Point(lon, lat)],
-            crs="EPSG:4326",
+        # Project point to metric CRS
+        pt_metric = transform(self._to_metric, Point(lon, lat))
+        buffer_metric = pt_metric.buffer(radius_m)
+        buffer_raster_crs = transform(self._to_raster, buffer_metric)
+
+        stats = zonal_stats(
+            [buffer_raster_crs],
+            self._raster_array,
+            affine=self._affine,
+            stats=["sum"],
+            nodata=self._nodata,
         )
 
-        with rasterio.open(self.raster_path) as src:
-            if src.crs is None and self.raster_crs:
-                raster_crs = self.raster_crs
-            else:
-                raster_crs = src.crs
-
-            # Project point to raster CRS
-            point_proj = point_gdf.to_crs(raster_crs)
-
-            # Buffer in meters (valid in projected CRS)
-            buffer_geom = point_proj.buffer(radius_m)
-
-            stats = zonal_stats(
-                buffer_geom,
-                self.raster_path,
-                stats=["sum"],
-                nodata=src.nodata,
-            )
-
         pop_sum = stats[0].get("sum", 0)
+        return int(pop_sum) if pop_sum is not None else 0
 
-        if pop_sum is None:
-            return 0
+    def batch_population_within_radius(
+        self,
+        points: List[Tuple[float, float]],
+        radius_m: float,
+    ) -> np.ndarray:
+        """
+        Estimate population for many points in a single zonal_stats call.
 
-        return int(pop_sum)
+        Projects points to a metric CRS for buffering in meters,
+        then reprojects buffers to the raster CRS for extraction.
+        The raster array and affine are passed directly to avoid
+        reopening the file.
+
+        Args:
+            points: List of (lon, lat) tuples in decimal degrees.
+            radius_m: Buffer radius in meters (same for all points).
+
+        Returns:
+            numpy array of int population values, one per input point.
+        """
+        if not points:
+            return np.array([], dtype=int)
+
+        buffers_raster_crs = []
+        for lon, lat in points:
+            pt_metric = transform(self._to_metric, Point(lon, lat))
+            buffer_metric = pt_metric.buffer(radius_m)
+            buffer_raster = transform(self._to_raster, buffer_metric)
+            buffers_raster_crs.append(buffer_raster)
+
+        stats = zonal_stats(
+            buffers_raster_crs,
+            self._raster_array,
+            affine=self._affine,
+            stats=["sum"],
+            nodata=self._nodata,
+        )
+
+        return np.array(
+            [int(s.get("sum", 0)) if s.get("sum") is not None else 0
+             for s in stats],
+            dtype=int,
+        )
 
 
 def find_radius_for_population(

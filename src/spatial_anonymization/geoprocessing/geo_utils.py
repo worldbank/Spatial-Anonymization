@@ -14,8 +14,27 @@ import random
 from typing import Tuple, Optional
 from math import radians, degrees, asin, atan2, sin, cos
 
+
 from shapely.geometry import LineString, Point
 from pyproj import Geod
+
+# ---------------------------------------------------------------------
+# UTM ZONE CALCULATION
+# ---------------------------------------------------------------------
+def get_utm_epsg(lon: float, lat: float) -> int:
+    """
+    Compute the EPSG code for the UTM zone of a given lon/lat.
+
+    Args:
+        lon (float): Longitude in decimal degrees.
+        lat (float): Latitude in decimal degrees.
+
+    Returns:
+        int: EPSG code for the UTM zone (e.g., 32633 for zone 33N)
+    """
+    utm_zone = int((lon + 180) / 6) + 1
+    hemisphere = 326 if lat >= 0 else 327
+    return int(f"{hemisphere}{utm_zone:02d}")
 
 
 # ---------------------------------------------------------------------
@@ -43,7 +62,6 @@ def distance_points(
     )
     geod = Geod(ellps=ellipsoid)
     return geod.geometry_length(line) / 1000.0
-
 
 # ---------------------------------------------------------------------
 # GEODESIC DISPLACEMENT

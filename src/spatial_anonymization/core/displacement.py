@@ -23,7 +23,6 @@ from typing import Optional
 
 from spatial_anonymization.geoprocessing.geo_utils import terminal_coordinates_faster
 from spatial_anonymization.geoprocessing.radius import (
-    sample_dhs_radius,
     sample_donut_radius,
     find_population_adaptive_radius,
 )
@@ -110,7 +109,7 @@ class SurveyDisplacer:
         else:
             for _ in range(self.max_attempts):
                 if self.method == "dhs":
-                    radius = sample_dhs_radius(self.params["max_distance"])
+                    radius = sample_donut_radius(0, self.params["max_distance"])
                 elif self.method == "donut":
                     radius = sample_donut_radius(
                         self.params["min_distance"],

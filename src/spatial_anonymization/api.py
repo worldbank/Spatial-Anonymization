@@ -21,6 +21,117 @@ from spatial_anonymization.config.presets import get_preset
 from spatial_anonymization.data.inputs_manager import InputsManager
 
 
+def _print_config(
+    config: AnonymizationParams,
+    *,
+    preset_name: Optional[str] = None,
+    overrides: Optional[dict] = None,
+    differentiate_urban_rural: bool = True,
+    urban_rural_col: Optional[str] = None,
+) -> None:
+    """Print a prettified, annotated summary of the active anonymization config."""
+
+    W = 72  # box inner width
+
+    def _row(param: str, value, description: str) -> str:
+        val_str = str(value)
+        left = f"  {param:<24s} {val_str:<12s} {description}"
+        return f"║ {left:<{W}s}║"
+
+    def _section(title: str) -> str:
+        return f"║  {title:<{W - 1}s}║"
+
+    def _sep() -> str:
+        return "╠" + "═" * (W + 1) + "╣"
+
+    extra_pct = (
+        f"{config.rural_extra_proportion * 100:.1f}%"
+        if config.rural_extra_proportion is not None
+        else "0.0%"
+    )
+
+    lines = [
+        "╔" + "═" * (W + 1) + "╗",
+        f"║ {'ANONYMIZATION CONFIGURATION':^{W}s}║",
+        _sep(),
+    ]
+
+    # Preset info
+    if preset_name:
+        tag = f"Preset: {preset_name}"
+        if overrides:
+            tag += f"  (+{len(overrides)} override{'s' if len(overrides) > 1 else ''})"
+        lines.append(f"║  {tag:<{W - 1}s}║")
+        lines.append(_sep())
+
+    # Displacement method
+    method_desc = {
+        "dhs": "Random displacement within max radius",
+        "donut": "Random displacement between min and max radius",
+        "population_adaptive": "Radius grows until population threshold met",
+    }
+    lines.append(_section("DISPLACEMENT METHOD"))
+    lines.append(_row("method", config.method,
+                       method_desc.get(config.method, "")))
+    lines.append(_sep())
+
+    # Distance thresholds
+    lines.append(_section("DISTANCE THRESHOLDS"))
+    lines.append(_row("urban_max_distance", f"{config.urban_max_distance} m",
+                       "Max displacement for urban points"))
+    lines.append(_row("rural_max_distance", f"{config.rural_max_distance} m",
+                       "Max displacement for rural points"))
+    lines.append(_row("rural_extra_max", f"{config.rural_extra_max_distance} m",
+                       "Extended rural displacement"))
+    lines.append(_row("rural_extra_prop", extra_pct,
+                       "Fraction of rural points extended"))
+    lines.append(_row("min_distance", f"{config.min_distance} m",
+                       "Min displacement (donut masking)"))
+    lines.append(_row("urban_min_distance", f"{config.urban_min_distance} m",
+                       "Min displacement for urban (donut)"))
+    lines.append(_row("rural_min_distance", f"{config.rural_min_distance} m",
+                       "Min displacement for rural (donut)"))
+    lines.append(_row("max_distance", f"{config.max_distance} m",
+                       "Fallback when urban/rural unknown"))
+    if differentiate_urban_rural and urban_rural_col:
+        lines.append(_row("diff_urban_rural", "ON",
+                           f"Using column '{urban_rural_col}'"))
+    else:
+        reason = "disabled" if not differentiate_urban_rural else "no column"
+        lines.append(_row("diff_urban_rural", "OFF",
+                           f"Same distance for all ({reason})"))
+    lines.append(_sep())
+
+    # Population policy
+    lines.append(_section("POPULATION POLICY"))
+    lines.append(_row("min_population", config.min_population or "None",
+                       "Min people within displacement radius"))
+    lines.append(_row("pop_search_max_r", f"{config.population_search_max_radius} m"
+                       if config.population_search_max_radius else "None",
+                       "Max search radius for population"))
+    lines.append(_row("pop_step_m", f"{config.population_step_m} m",
+                       "Radius expansion increment"))
+    lines.append(_row("disp_pop_radius", f"{int(config.displaced_pop_radius_m)} m",
+                       "Post-displacement pop buffer"))
+    lines.append(_sep())
+
+    # Spatial constraints
+    lines.append(_section("SPATIAL CONSTRAINTS"))
+    lines.append(_row("admin_level", config.admin_level,
+                       "Administrative boundary level"))
+    lines.append(_row("enforce_admin", config.enforce_admin_boundary,
+                       "Keep points inside admin unit"))
+    lines.append(_row("enforce_water", config.enforce_water_constraint,
+                       "Avoid displacing into water"))
+    lines.append(_row("water_strict", config.water_constraint_strict,
+                       "Reject (vs warn) if point in water"))
+    lines.append(_row("enforce_road", config.enforce_road_constraint,
+                       "Avoid displacing onto roads"))
+
+    lines.append("╚" + "═" * (W + 1) + "╝")
+
+    print("\n".join(lines))
+
 def anonymize_survey_coordinates(
     df: pd.DataFrame,
     country_iso3: str,
@@ -37,6 +148,7 @@ def anonymize_survey_coordinates(
     urban_rural_col: Optional[str] = None,
     urban_value: Optional[str] = "urban",
     rural_value: Optional[str] = "rural",
+    differentiate_urban_rural: bool = True,
     # Individual anonymization params (used if config is None)
     # When None, values inherit from the preset (DHS by default).
     method: Optional[Literal["dhs", "donut", "population_adaptive"]] = None,
@@ -49,17 +161,18 @@ def anonymize_survey_coordinates(
     admin_level: Optional[int] = None,
     # Download and constraint options
     population_year: int = 2025,
-    enforce_admin_boundary: Optional[bool] = None,
-    enforce_water_constraint: Optional[bool] = None,
-    enforce_road_constraint: Optional[bool] = None,
+    enforce_admin_boundary: bool = False,
+    enforce_water_constraint: bool = False,
+    enforce_road_constraint: bool = False,
     # Execution options
     utm_epsg: Optional[int] = None,
-    max_attempts: int = 50,
+    max_attempts: int = 100,
     random_seed: Optional[int] = None,
     n_workers: Optional[int] = None,
     out_lon_col: str = "lon_anon",
     out_lat_col: str = "lat_anon",
     output_dir: Optional[str] = None,
+    extract_displaced_population: bool = False,
 ) -> pd.DataFrame:
     """
     Anonymize survey GPS coordinates.
@@ -199,53 +312,50 @@ def anonymize_survey_coordinates(
         ... )
     """
     # Create or use provided config
+    _preset_name: Optional[str] = None
+    _overrides: Optional[dict] = None
+
     if config is None:
         # Start from preset (default to DHS) and apply user overrides
-        preset_name = method if method is not None else "dhs"
-        base_config = get_preset(preset_name)
+        _preset_name = method if method is not None else "dhs"
+        base_config = get_preset(_preset_name)
 
         # Collect only the parameters the caller explicitly set (non-None)
-        overrides = {}
+        _overrides = {}
         if method is not None:
-            overrides["method"] = method
+            _overrides["method"] = method
         if max_distance is not None:
-            overrides["max_distance"] = max_distance
+            _overrides["max_distance"] = max_distance
         if min_distance is not None:
-            overrides["min_distance"] = min_distance
+            _overrides["min_distance"] = min_distance
         if urban_max_distance is not None:
-            overrides["urban_max_distance"] = urban_max_distance
+            _overrides["urban_max_distance"] = urban_max_distance
         if rural_max_distance is not None:
-            overrides["rural_max_distance"] = rural_max_distance
+            _overrides["rural_max_distance"] = rural_max_distance
         if rural_extra_max_distance is not None:
-            overrides["rural_extra_max_distance"] = rural_extra_max_distance
+            _overrides["rural_extra_max_distance"] = rural_extra_max_distance
         if rural_extra_proportion is not None:
-            overrides["rural_extra_proportion"] = rural_extra_proportion
+            _overrides["rural_extra_proportion"] = rural_extra_proportion
         if admin_level is not None:
-            overrides["admin_level"] = admin_level
+            _overrides["admin_level"] = admin_level
         if enforce_admin_boundary is not None:
-            overrides["enforce_admin_boundary"] = enforce_admin_boundary
+            _overrides["enforce_admin_boundary"] = enforce_admin_boundary
         if enforce_water_constraint is not None:
-            overrides["enforce_water_constraint"] = enforce_water_constraint
+            _overrides["enforce_water_constraint"] = enforce_water_constraint
         if enforce_road_constraint is not None:
-            overrides["enforce_road_constraint"] = enforce_road_constraint
+            _overrides["enforce_road_constraint"] = enforce_road_constraint
+        if extract_displaced_population is not None:
+            _overrides["extract_displaced_population"] = extract_displaced_population
 
-        config = dc_replace(base_config, **overrides) if overrides else base_config
-        print(f"[Config] Using '{preset_name}' preset" + (f" with overrides: {overrides}" if overrides else ""))
+        config = dc_replace(base_config, **_overrides) if _overrides else base_config
 
     # Print effective displacement configuration
-    print(
-        f"[Config] Effective displacement settings:\n"
-        f"         method={config.method}\n"
-        f"         urban_max_distance={config.urban_max_distance}m, "
-        f"rural_max_distance={config.rural_max_distance}m\n"
-        f"         rural_extra_max_distance={config.rural_extra_max_distance}m, "
-        f"rural_extra_proportion={config.rural_extra_proportion}\n"
-        f"         min_distance={config.min_distance}m, "
-        f"max_distance(fallback)={config.max_distance}m\n"
-        f"         admin_level={config.admin_level}, "
-        f"enforce_admin={config.enforce_admin_boundary}, "
-        f"enforce_water={config.enforce_water_constraint}, "
-        f"enforce_road={config.enforce_road_constraint}"
+    _print_config(
+        config,
+        preset_name=_preset_name,
+        overrides=_overrides,
+        differentiate_urban_rural=differentiate_urban_rural,
+        urban_rural_col=urban_rural_col,
     )
     
     # Load admin boundaries if path provided
@@ -352,11 +462,12 @@ def anonymize_survey_coordinates(
 
     # Run anonymization using column names from function parameters
     print(f"[Anonymization] Starting for {len(df)} rows...")
+    effective_urban_col = urban_rural_col if differentiate_urban_rural else None
     result = anonymizer.anonymize_dataframe(
         df,
         lon_col=lon_col,
         lat_col=lat_col,
-        urban_col=urban_rural_col,
+        urban_col=effective_urban_col,
         urban_value=urban_value,
         rural_value=rural_value,
         out_lon_col=out_lon_col,

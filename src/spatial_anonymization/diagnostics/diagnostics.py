@@ -1,7 +1,11 @@
 # diagnostics.py
+from __future__ import annotations
+
+from typing import Iterable, Optional
+
+import numpy as np
 import pandas as pd
 import geopandas as gpd
-from typing import Iterable, Optional
 
 from spatial_anonymization.geoprocessing.geo_utils import distance_points
 
@@ -14,71 +18,221 @@ def displacement_statistics(
     anon_lon_col: str = "lon_anon",
     anon_lat_col: str = "lat_anon",
     urban_col: Optional[str] = None,
-    stats: Iterable[str] = ("mean", "median", "min", "max"),
+    stats: Iterable[str] = (
+        "count",
+        "mean",
+        "median",
+        "min",
+        "max",
+        "p90",
+        "p95",
+        "p99",
+    ),
+    include_dhs_checks: bool = True,
+    rural_long_tail_share: float = 0.01,
 ) -> pd.DataFrame:
     """
-    Compute summary statistics of displacement distance between
-    original and anonymized coordinates.
+    Compute displacement-distance summary statistics between original and
+    anonymized coordinates, with optional DHS-style validation checks.
 
-    Args:
-        df: DataFrame containing original and anonymized coordinates.
-        lon_col: Column with original longitude.
-        lat_col: Column with original latitude.
-        anon_lon_col: Column with anonymized longitude.
-        anon_lat_col: Column with anonymized latitude.
-        urban_col: Optional urban/rural indicator column.
-        stats: Iterable of statistics to compute.
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing original and anonymized coordinates.
+    lon_col : str
+        Column containing original longitude.
+    lat_col : str
+        Column containing original latitude.
+    anon_lon_col : str, default="lon_anon"
+        Column containing anonymized longitude.
+    anon_lat_col : str, default="lat_anon"
+        Column containing anonymized latitude.
+    urban_col : str | None, default=None
+        Optional column identifying urban/rural class. If provided, statistics
+        are computed by this grouping column and for the full dataset.
+    stats : Iterable[str], default=("count", "mean", "median", "min", "max", "p90", "p95", "p99")
+        Statistics to compute. Supported values are:
+        "count", "mean", "median", "min", "max", "std", "p50", "p90", "p95", "p99".
+    include_dhs_checks : bool, default=True
+        Whether to append simple DHS-style checks:
+        - urban max should be <= 2 km
+        - rural max should be <= 10 km
+        - rural share above 5 km should be close to the expected long-tail share
+    rural_long_tail_share : float, default=0.01
+        Expected share of rural points displaced beyond 5 km under the DHS rule.
 
-    Returns:
-        DataFrame with columns: stat, area, value
+    Returns
+    -------
+    pd.DataFrame
+        Tidy DataFrame with columns:
+        - Area
+        - Stat
+        - Distance (Km)
+
+        If `include_dhs_checks=True`, additional rows are included for DHS checks.
     """
 
-    records = []
+    required_cols = [lon_col, lat_col, anon_lon_col, anon_lat_col]
+    if urban_col:
+        required_cols.append(urban_col)
 
-    for _, row in df.iterrows():
-        if pd.isna(row[anon_lon_col]) or pd.isna(row[anon_lat_col]):
-            continue
+    missing_cols = [c for c in required_cols if c not in df.columns]
+    if missing_cols:
+        raise KeyError(f"Missing required columns: {missing_cols}")
 
-        d_km = distance_points(
+    work = df.copy()
+
+    # Keep rows with complete original and anonymized coordinates
+    mask = work[[lon_col, lat_col, anon_lon_col, anon_lat_col]].notna().all(axis=1)
+    work = work.loc[mask].copy()
+
+    if work.empty:
+        result = pd.DataFrame(columns=["Area", "Stat", "Distance (Km)"])
+        print("\nNo valid rows with both original and anonymized coordinates were found.")
+        return result
+
+    # Compute distance row-wise
+    work["distance_km"] = work.apply(
+        lambda row: distance_points(
             (row[lon_col], row[lat_col]),
             (row[anon_lon_col], row[anon_lat_col]),
+        ),
+        axis=1,
+    )
+
+    if urban_col:
+        work["Area"] = work[urban_col].astype(str)
+    else:
+        work["Area"] = "all"
+
+    supported_stats = {
+        "count": lambda s: s.count(),
+        "mean": lambda s: s.mean(),
+        "median": lambda s: s.median(),
+        "min": lambda s: s.min(),
+        "max": lambda s: s.max(),
+        "std": lambda s: s.std(),
+        "p50": lambda s: s.quantile(0.50),
+        "p90": lambda s: s.quantile(0.90),
+        "p95": lambda s: s.quantile(0.95),
+        "p99": lambda s: s.quantile(0.99),
+    }
+
+    invalid_stats = [stat for stat in stats if stat not in supported_stats]
+    if invalid_stats:
+        raise ValueError(
+            f"Unsupported stats requested: {invalid_stats}. "
+            f"Supported stats are: {list(supported_stats.keys())}"
         )
 
-        area = row[urban_col] if urban_col else "all"
-        records.append({"area": area, "distance_km": d_km})
-
-    dist_df = pd.DataFrame(records)
-
     out = []
-    for area, g in dist_df.groupby("area"):
-        for stat in stats:
-            out.append(
-                {
-                    "Stat": stat,
-                    "Area": area,
-                    "Distance (Km)": getattr(g["distance_km"], stat)(),
-                }
-            )
+
+    # Overall stats
+    overall = work["distance_km"]
+    for stat in stats:
+        out.append(
+            {
+                "Area": "all",
+                "Stat": stat,
+                "Distance (Km)": supported_stats[stat](overall),
+            }
+        )
+
+    # Group stats
+    if urban_col:
+        for area, g in work.groupby("Area", dropna=False):
+            s = g["distance_km"]
+            for stat in stats:
+                out.append(
+                    {
+                        "Area": area,
+                        "Stat": stat,
+                        "Distance (Km)": supported_stats[stat](s),
+                    }
+                )
 
     result = pd.DataFrame(out)
 
+    if include_dhs_checks and urban_col:
+        checks = []
+
+        area_map = {str(a).strip().lower(): a for a in work["Area"].dropna().unique()}
+
+        urban_key = next((area_map[k] for k in area_map if k in {"urban", "u"}), None)
+        rural_key = next((area_map[k] for k in area_map if k in {"rural", "r"}), None)
+
+        if urban_key is not None:
+            urban_dist = work.loc[work["Area"] == urban_key, "distance_km"]
+            if not urban_dist.empty:
+                checks.append(
+                    {
+                        "Area": urban_key,
+                        "Stat": "check_max<=2km",
+                        "Distance (Km)": float((urban_dist <= 2).all()),
+                    }
+                )
+                checks.append(
+                    {
+                        "Area": urban_key,
+                        "Stat": "share_>2km",
+                        "Distance (Km)": (urban_dist > 2).mean(),
+                    }
+                )
+
+        if rural_key is not None:
+            rural_dist = work.loc[work["Area"] == rural_key, "distance_km"]
+            if not rural_dist.empty:
+                checks.append(
+                    {
+                        "Area": rural_key,
+                        "Stat": "check_max<=10km",
+                        "Distance (Km)": float((rural_dist <= 10).all()),
+                    }
+                )
+                checks.append(
+                    {
+                        "Area": rural_key,
+                        "Stat": "share_>5km",
+                        "Distance (Km)": (rural_dist > 5).mean(),
+                    }
+                )
+                checks.append(
+                    {
+                        "Area": rural_key,
+                        "Stat": "share_>10km",
+                        "Distance (Km)": (rural_dist > 10).mean(),
+                    }
+                )
+                checks.append(
+                    {
+                        "Area": rural_key,
+                        "Stat": "expected_share_>5km",
+                        "Distance (Km)": rural_long_tail_share,
+                    }
+                )
+
+        if checks:
+            result = pd.concat([result, pd.DataFrame(checks)], ignore_index=True)
+
+    # Nice display formatting — print each area as a separate block
     print(
         "\n=====================================================\n"
-        " Distance Stats:Original vs.Displaced Coordinates\n"
+        " Distance Stats: Original vs. Displaced Coordinates\n"
         "====================================================="
     )
-    # Build formatted table with underlined headers
-    col_widths = {
-        col: max(len(col), result[col].astype(str).str.len().max())
-        for col in result.columns
-    }
-    header = "  ".join(col.ljust(col_widths[col]) for col in result.columns)
-    separator = "  ".join("-" * col_widths[col] for col in result.columns)
-    rows = "\n".join(
-        "  ".join(str(row[col]).ljust(col_widths[col]) for col in result.columns)
-        for _, row in result.iterrows()
-    )
-    print(f"{header}\n{separator}\n{rows}")
+
+    for area in result["Area"].unique():
+        block = result[result["Area"] == area].copy()
+        block["Distance (Km)"] = block["Distance (Km)"].apply(
+            lambda x: f"{x:.4f}" if isinstance(x, (int, float, np.floating)) else str(x)
+        )
+        print(f"\n--- {area} ---")
+        stat_w = max(len("Stat"), block["Stat"].astype(str).str.len().max())
+        dist_w = max(len("Distance (Km)"), block["Distance (Km)"].astype(str).str.len().max())
+        print(f"  {'Stat'.ljust(stat_w)}  {'Distance (Km)'.rjust(dist_w)}")
+        print(f"  {'-' * stat_w}  {'-' * dist_w}")
+        for _, row in block.iterrows():
+            print(f"  {str(row['Stat']).ljust(stat_w)}  {str(row['Distance (Km)']).rjust(dist_w)}")
 
     return result
 

@@ -5,14 +5,10 @@ This module defines the AnonymizationParams class, which
 captures all configurable options controlling spatial
 anonymization behavior.
 """
-# config.py
 import json
 import yaml
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-
-
-from dataclasses import dataclass, field
 from typing import Optional, Literal
 
 
@@ -20,16 +16,26 @@ from typing import Optional, Literal
 class DataSourcesConfig:
     """
     Configuration for spatial input data sources and providers.
-    
+
     This configuration specifies which data sources to use for admin boundaries,
     population, water bodies, and roads. It enables reproducibility by documenting
     exactly which datasets were used for anonymization.
     """
-    
+
+    extract_displaced_population: bool = field(
+        default=True,
+        metadata={
+            "description": (
+                "Whether to extract population for displaced points after anonymization. "
+                "If False, skips post-displacement population extraction."
+            )
+        }
+    )
+
     # ==================================================================
     # ADMINISTRATIVE BOUNDARIES
     # ==================================================================
-    
+
     admin_boundary_source: Literal["geoboundaries", "gadm", "user_provided"] = field(
         default="geoboundaries",
         metadata={
@@ -41,7 +47,7 @@ class DataSourcesConfig:
             )
         }
     )
-    
+
     admin_boundary_fallback: Optional[Literal["geoboundaries", "gadm"]] = field(
         default="gadm",
         metadata={
@@ -51,11 +57,11 @@ class DataSourcesConfig:
             )
         }
     )
-    
+
     # ==================================================================
     # POPULATION DATA
     # ==================================================================
-    
+
     population_source: Literal["worldpop", "landscan", "ghsl", "user_provided", "none"] = field(
         default="worldpop",
         metadata={
@@ -69,7 +75,7 @@ class DataSourcesConfig:
             )
         }
     )
-    
+
     population_dataset_version: str = field(
         default="R2025A_v1",
         metadata={
@@ -79,7 +85,7 @@ class DataSourcesConfig:
             )
         }
     )
-    
+
     population_year: int = field(
         default=2025,
         metadata={
@@ -89,7 +95,7 @@ class DataSourcesConfig:
             )
         }
     )
-    
+
     population_resolution: Literal["100m", "1km"] = field(
         default="100m",
         metadata={
@@ -99,7 +105,7 @@ class DataSourcesConfig:
             )
         }
     )
-    
+
     population_type: Literal["constrained", "unconstrained"] = field(
         default="constrained",
         metadata={
@@ -110,11 +116,11 @@ class DataSourcesConfig:
             )
         }
     )
-    
+
     # ==================================================================
     # WATER BODIES
     # ==================================================================
-    
+
     water_source: Literal["osm", "hydrosheds", "user_provided", "none"] = field(
         default="osm",
         metadata={
@@ -127,11 +133,11 @@ class DataSourcesConfig:
             )
         }
     )
-    
+
     # ==================================================================
     # ROADS
     # ==================================================================
-    
+
     road_source: Literal["osm", "user_provided", "none"] = field(
         default="none",
         metadata={
@@ -143,11 +149,11 @@ class DataSourcesConfig:
             )
         }
     )
-    
+
     # ==================================================================
     # DOWNLOAD BEHAVIOR
     # ==================================================================
-    
+
     working_dir: Optional[str] = field(
         default=None,
         metadata={
@@ -157,7 +163,7 @@ class DataSourcesConfig:
             )
         }
     )
-    
+
     cache_downloads: bool = field(
         default=True,
         metadata={
@@ -167,7 +173,7 @@ class DataSourcesConfig:
             )
         }
     )
-    
+
     auto_download: bool = field(
         default=True,
         metadata={
@@ -181,6 +187,15 @@ class DataSourcesConfig:
 
 @dataclass(slots=True)
 class AnonymizationParams:
+    relax_admin_constraint_on_failure: bool = field(
+        default=False,
+        metadata={
+            "description": (
+                "If True, will retry anonymization without the admin region constraint if all attempts fail with it. "
+                "This allows more flexibility for hard-to-anonymize points."
+            )
+        },
+    )
     """
     Policy configuration for spatial anonymization.
 
@@ -197,6 +212,16 @@ class AnonymizationParams:
                 "'donut' enforces a minimum displacement distance, "
                 "and 'population_adaptive' selects displacement distance "
                 "based on a minimum population threshold."
+            )
+        }
+    )
+
+    extract_displaced_population: bool = field(
+        default=True,
+        metadata={
+            "description": (
+                "Whether to extract population for displaced points after anonymization. "
+                "If False, skips post-displacement population extraction."
             )
         }
     )
@@ -324,19 +349,30 @@ class AnonymizationParams:
         },
     )
 
+    displaced_pop_radius_m: float = field(
+        default=1000.0,
+        metadata={
+            "description": (
+                "Buffer radius (in meters) around each displaced point "
+                "used to extract population count from the raster. "
+                "Set to 0 to skip post-displacement population extraction."
+            )
+        },
+    )
+
     # ==================================================================
     # SPATIAL CONSTRAINTS
     # ==================================================================
-    admin_level: int = field(
-    default=2,
-    metadata={
-        "description": (
-            "Administrative level used for enforcing boundary constraints "
-            "(e.g. 0=country, 1=region, 2=district)."
-        )
-    },
-)
 
+    admin_level: int = field(
+        default=2,
+        metadata={
+            "description": (
+                "Administrative level used for enforcing boundary constraints "
+                "(e.g. 0=country, 1=region, 2=district)."
+            )
+        },
+    )
 
     enforce_admin_boundary: bool = field(
         default=True,
@@ -393,7 +429,7 @@ class AnonymizationParams:
     # ==================================================================
     # DATA SOURCES
     # ==================================================================
-    
+
     data_sources: DataSourcesConfig = field(
         default_factory=DataSourcesConfig,
         metadata={
@@ -408,38 +444,52 @@ class AnonymizationParams:
     def max_distance_for(self, is_urban: Optional[bool]) -> float:
         """
         Return the appropriate maximum displacement distance based on urban/rural status.
-        
+
         Args:
             is_urban: True for urban, False for rural, None for unknown
-            
+
         Returns:
             Maximum distance in meters
         """
         if is_urban is None:
             return self.max_distance
-        
+
         if is_urban:
-            return self.urban_max_distance if self.urban_max_distance is not None else self.max_distance
-        else:
-            return self.rural_max_distance if self.rural_max_distance is not None else self.max_distance
+            return (
+                self.urban_max_distance
+                if self.urban_max_distance is not None
+                else self.max_distance
+            )
+        return (
+            self.rural_max_distance
+            if self.rural_max_distance is not None
+            else self.max_distance
+        )
 
     def min_distance_for(self, is_urban: Optional[bool]) -> float:
         """
         Return the appropriate minimum displacement distance based on urban/rural status.
-        
+
         Args:
             is_urban: True for urban, False for rural, None for unknown
-            
+
         Returns:
             Minimum distance in meters
         """
         if is_urban is None:
             return self.min_distance
-        
+
         if is_urban:
-            return self.urban_min_distance if self.urban_min_distance is not None else self.min_distance
-        else:
-            return self.rural_min_distance if self.rural_min_distance is not None else self.min_distance
+            return (
+                self.urban_min_distance
+                if self.urban_min_distance is not None
+                else self.min_distance
+            )
+        return (
+            self.rural_min_distance
+            if self.rural_min_distance is not None
+            else self.min_distance
+        )
 
     def to_yaml(self, path: str | Path):
         """Save configuration to a YAML file."""
@@ -450,4 +500,3 @@ class AnonymizationParams:
         """Save configuration to a JSON file."""
         with open(path, "w") as f:
             json.dump(asdict(self), f, indent=2)
-

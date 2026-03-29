@@ -1,7 +1,6 @@
 import numpy as np
 
 from spatial_anonymization.geospatial.radius import (
-    sample_dhs_radius,
     sample_donut_radius,
 )
 
@@ -14,7 +13,7 @@ def test_dhs_radius_within_bounds():
     print("\nTesting DHS radius bounds")
     max_dist = 5000  # meters
 
-    samples = [sample_dhs_radius(max_dist) for _ in range(1000)]
+    samples = [sample_donut_radius(0, max_dist) for _ in range(1000)]
 
     print(f"Min sampled distance: {min(samples):.2f} m")
     print(f"Max sampled distance: {max(samples):.2f} m")
@@ -27,7 +26,7 @@ def test_dhs_radius_allows_small_distances():
     print("\nTesting DHS allows very small displacements")
     max_dist = 5000
 
-    samples = [sample_dhs_radius(max_dist) for _ in range(1000)]
+    samples = [sample_donut_radius(0, max_dist) for _ in range(1000)]
 
     small_count = sum(d < 100 for d in samples)  # <100 m
     print(f"Number of samples < 100 m: {small_count}")

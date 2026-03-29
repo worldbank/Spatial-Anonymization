@@ -6,7 +6,7 @@ location. It does NOT check privacy or realism constraints. It only
 determines candidate displacement distances.
 
 Implemented strategies:
-- DHS-style random displacement (0 → max distance)
+- DHS-style random displacement (area-uniform over disk, via donut with min=0)
 - Donut geomasking (min → max distance, area-uniform)
 - Population-adaptive radius selection (minimum radius satisfying a
   population threshold)
@@ -21,18 +21,6 @@ import math
 import random
 from typing import Callable, Optional
 
-
-
-def sample_dhs_radius(max_distance_m: float) -> float:
-    """Sample DHS-style displacement radius.
-
-    Args:
-        max_distance_m (float): Maximum displacement distance in meters.
-
-    Returns:
-        float: Displacement radius in meters.
-    """
-    return random.random() * max_distance_m
 
 
 def sample_donut_radius(min_distance_m: float, max_distance_m: float) -> float:

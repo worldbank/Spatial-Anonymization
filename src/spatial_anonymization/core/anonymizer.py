@@ -27,12 +27,17 @@ import geopandas as gpd
 
 from spatial_anonymization.config.params import AnonymizationParams
 from spatial_anonymization.data.inputs_manager import InputsManager
-from spatial_anonymization.geoprocessing.geo_utils import displace_point_geodesic
+from spatial_anonymization.geoprocessing.geo_utils import (
+    displace_point_geodesic,
+    distance_points,
+)
 from spatial_anonymization.geoprocessing.radius import (
-    sample_dhs_radius,
     sample_donut_radius,
 )
-from spatial_anonymization.geoprocessing.population import find_radius_for_population
+from spatial_anonymization.geoprocessing.population import (
+    find_radius_for_population,
+    RasterPopulationProvider,
+)
 from spatial_anonymization.geoprocessing.constraints import passes_constraints
 
 # Min points before spawning worker processes (avoids pool overhead on tiny data)
@@ -63,8 +68,11 @@ def _worker_anonymize_point(
     lat: float,
     is_urban: Optional[bool],
     admin_geom: Optional[Polygon],
-) -> Optional[Tuple[float, float]]:
-    """Standalone worker — uses module-level shared data for large objects."""
+) -> dict:
+    """Standalone worker — uses module-level shared data for large objects.
+
+    Returns a dict with keys: lon, lat, distance_km, attempts, success.
+    """
     from shapely.prepared import prep as shapely_prep
 
     config = _worker_config
@@ -87,11 +95,14 @@ def _worker_anonymize_point(
             allow_roads=allow_roads,
         )
 
+    fail = {"lon": None, "lat": None, "distance_km": None,
+            "attempts": max_attempts, "success": False}
+
     # --- DHS / Donut methods ---
     if config.method in ("dhs", "donut"):
-        for _ in range(max_attempts):
+        for attempt in range(1, max_attempts + 1):
             if config.method == "dhs":
-                radius_m = sample_dhs_radius(config.max_distance_for(is_urban))
+                radius_m = sample_donut_radius(0, config.max_distance_for(is_urban))
             else:
                 radius_m = sample_donut_radius(
                     config.min_distance_for(is_urban),
@@ -99,11 +110,38 @@ def _worker_anonymize_point(
                 )
             candidate = displace_point_geodesic(lon=lon, lat=lat, distance_m=radius_m)
             if _passes(candidate):
-                return candidate
-        return None
+                dist_km = distance_points((lon, lat), candidate)
+                return {"lon": candidate[0], "lat": candidate[1],
+                        "distance_km": dist_km, "attempts": attempt,
+                        "success": True, "relaxed_admin": False}
+        # If all attempts fail and relax_admin_constraint_on_failure is True, retry without admin constraint
+        if getattr(config, "relax_admin_constraint_on_failure", False) and prepared_admin is not None:
+            for attempt in range(1, max_attempts + 1):
+                if config.method == "dhs":
+                    radius_m = sample_donut_radius(0, config.max_distance_for(is_urban))
+                else:
+                    radius_m = sample_donut_radius(
+                        config.min_distance_for(is_urban),
+                        config.max_distance_for(is_urban),
+                    )
+                candidate = displace_point_geodesic(lon=lon, lat=lat, distance_m=radius_m)
+                # Pass None for prepared_admin to relax the constraint
+                if passes_constraints(
+                    point=Point(candidate[0], candidate[1]),
+                    prepared_admin=None,
+                    water_gdf=water_gdf,
+                    roads_gdf=roads_gdf,
+                    road_buffer_m=road_buffer_m,
+                    allow_roads=allow_roads,
+                ):
+                    dist_km = distance_points((lon, lat), candidate)
+                    return {"lon": candidate[0], "lat": candidate[1],
+                            "distance_km": dist_km, "attempts": attempt + max_attempts,
+                            "success": True, "relaxed_admin": True}
+        return fail
 
     # --- population_adaptive is NOT parallelised (rasterio not picklable) ---
-    return None
+    return fail
 
 class SurveyAnonymizer:
     """
@@ -134,6 +172,7 @@ class SurveyAnonymizer:
         self.inputs = inputs
         self.max_attempts = max_attempts
         self.n_workers = n_workers
+        self._pop_provider = None
 
         if random_seed is not None:
             random.seed(random_seed)
@@ -162,15 +201,21 @@ class SurveyAnonymizer:
         # --------------------------------------------------
 
         if self.config.method == "population_adaptive":
-            radius_m = find_radius_for_population(
-                lon=lon,
-                lat=lat,
-                population_raster=self.inputs.get_population_dataset(),
-                min_population=self.config.population_min,
-                max_radius_m=self.config.max_distance_for(is_urban),
-                utm_epsg=self.inputs.get_utm_epsg(),
+            pop_provider = RasterPopulationProvider(
+                raster_path=str(self.inputs.population_raster_path),
             )
-            if radius_m is None:
+            min_r = self.config.min_distance_for(is_urban) or self.config.population_step_m
+            try:
+                radius_m = find_radius_for_population(
+                    population_fn=pop_provider.population_within_radius,
+                    lon=lon,
+                    lat=lat,
+                    population_threshold=self.config.min_population or 0,
+                    min_radius_m=min_r,
+                    max_radius_m=self.config.max_distance_for(is_urban),
+                    step_m=self.config.population_step_m,
+                )
+            except ValueError:
                 return None
 
         else:
@@ -304,6 +349,26 @@ class SurveyAnonymizer:
             pt_admin = admin_geom_lookup.get(df.index[i], admin_fallback)
             points.append((row[lon_col], row[lat_col], is_urban, pt_admin))
 
+        # Report urban/rural breakdown and effective distances
+        if urban_col:
+            n_urban = sum(1 for *_, iu, _ in points if iu is True)
+            n_rural = sum(1 for *_, iu, _ in points if iu is False)
+            n_unknown = sum(1 for *_, iu, _ in points if iu is None)
+            print(
+                f"[Anonymizer] Urban/rural split: {n_urban} urban, {n_rural} rural"
+                + (f", {n_unknown} unknown" if n_unknown else "")
+            )
+            print(
+                f"[Anonymizer] Effective max distances: "
+                f"urban={self.config.max_distance_for(True)}m, "
+                f"rural={self.config.max_distance_for(False)}m"
+            )
+        else:
+            print(
+                f"[Anonymizer] No urban/rural column — "
+                f"using fallback max_distance={self.config.max_distance}m for all points"
+            )
+
         if use_parallel and n_total >= _PARALLEL_THRESHOLD:
             print(f"[Anonymizer] Using {effective_workers} worker processes")
             results = [None] * n_total
@@ -330,6 +395,14 @@ class SurveyAnonymizer:
             if n_total >= _PARALLEL_THRESHOLD:
                 print("[Anonymizer] Sequential mode (population_adaptive not parallelised)")
             results = []
+            # Cache RasterPopulationProvider for all points if needed
+            if self.config.method == "population_adaptive" or (
+                self.config.displaced_pop_radius_m > 0 and hasattr(self.inputs, "population_raster_path") and self.inputs.population_raster_path is not None
+            ):
+                if self._pop_provider is None:
+                    self._pop_provider = RasterPopulationProvider(
+                        raster_path=str(self.inputs.population_raster_path),
+                    )
             for idx, (lon, lat, is_urban, pt_admin) in enumerate(points, 1):
                 result = self._anonymize_point_with_admin(
                     lon, lat, is_urban=is_urban, admin_geom=pt_admin,
@@ -338,12 +411,52 @@ class SurveyAnonymizer:
                 if idx % 100 == 0 or idx == n_total:
                     print(f"[Anonymizer] Processed {idx}/{n_total} points")
 
-        df[out_lon_col] = [r[0] if r else None for r in results]
-        df[out_lat_col] = [r[1] if r else None for r in results]
+        df[out_lon_col] = [r["lon"] for r in results]
+        df[out_lat_col] = [r["lat"] for r in results]
+        df["distance_km"] = [r["distance_km"] for r in results]
+        df["attempts"] = [r["attempts"] for r in results]
 
         succeeded = df[out_lon_col].notna().sum()
         failed = n_total - succeeded
         print(f"[Anonymizer] Done. {succeeded} succeeded, {failed} failed.")
+
+        # Post-displacement population extraction (batched)
+        pop_radius = self.config.displaced_pop_radius_m
+        pop_col = f"pop_within_{int(pop_radius)}m"
+        extract_pop = True
+        if hasattr(self.config, "extract_displaced_population"):
+            extract_pop = self.config.extract_displaced_population
+        if (
+            extract_pop
+            and pop_radius > 0
+            and hasattr(self.inputs, "population_raster_path")
+            and self.inputs.population_raster_path is not None
+        ):
+            print(f"[Anonymizer] Extracting population within {int(pop_radius)}m of displaced points...")
+            pop_provider = self._pop_provider or RasterPopulationProvider(
+                raster_path=str(self.inputs.population_raster_path),
+            )
+
+            success_indices = [i for i, r in enumerate(results) if r["success"]]
+            if success_indices:
+                pts = [(results[i]["lon"], results[i]["lat"]) for i in success_indices]
+                pop_arr = pop_provider.batch_population_within_radius(pts, pop_radius)
+
+                pop_lookup = {si: int(pop_arr[j]) for j, si in enumerate(success_indices)}
+                pop_values = [pop_lookup.get(i) if results[i]["success"] else None
+                              for i in range(len(results))]
+            else:
+                pop_values = [None] * len(results)
+
+            df[pop_col] = pop_values
+            valid_pops = [p for p in pop_values if p is not None]
+            if valid_pops:
+                print(
+                    f"[Anonymizer] Population ({pop_col}): "
+                    f"mean={sum(valid_pops)/len(valid_pops):.0f}, "
+                    f"min={min(valid_pops)}, max={max(valid_pops)}"
+                )
+        # If extract_pop is False, do not add the population column at all
 
         # Save failed displacement points to intermediate_data
         if failed > 0:
@@ -406,8 +519,11 @@ class SurveyAnonymizer:
         *,
         is_urban: Optional[bool] = None,
         admin_geom: Optional[Polygon] = None,
-    ) -> Optional[Tuple[float, float]]:
-        """Anonymize a single point using a specific admin polygon for constraint."""
+    ) -> dict:
+        """Anonymize a single point using a specific admin polygon for constraint.
+
+        Returns a dict with keys: lon, lat, distance_km, attempts, success.
+        """
         from shapely.prepared import prep as shapely_prep
 
         water_gdf = (
@@ -433,34 +549,49 @@ class SurveyAnonymizer:
                 allow_roads=allow_roads,
             )
 
+        fail = {"lon": None, "lat": None, "distance_km": None,
+                "attempts": self.max_attempts, "success": False}
+
         if self.config.method == "population_adaptive":
-            radius_m = find_radius_for_population(
-                lon=lon,
-                lat=lat,
-                population_raster=self.inputs.get_population_dataset(),
-                min_population=self.config.population_min,
-                max_radius_m=self.config.max_distance_for(is_urban),
-                utm_epsg=self.inputs.get_utm_epsg(),
+            pop_provider = RasterPopulationProvider(
+                raster_path=str(self.inputs.population_raster_path),
             )
-            if radius_m is None:
-                return None
-            for _ in range(self.max_attempts):
+            min_r = self.config.min_distance_for(is_urban) or self.config.population_step_m
+            try:
+                radius_m = find_radius_for_population(
+                    population_fn=pop_provider.population_within_radius,
+                    lon=lon,
+                    lat=lat,
+                    population_threshold=self.config.min_population or 0,
+                    min_radius_m=min_r,
+                    max_radius_m=self.config.max_distance_for(is_urban),
+                    step_m=self.config.population_step_m,
+                )
+            except ValueError:
+                return fail
+            for attempt in range(1, self.max_attempts + 1):
                 candidate = displace_point_geodesic(lon=lon, lat=lat, distance_m=radius_m)
                 if _check(candidate):
-                    return candidate
-            return None
+                    dist_km = distance_points((lon, lat), candidate)
+                    return {"lon": candidate[0], "lat": candidate[1],
+                            "distance_km": dist_km, "attempts": attempt,
+                            "success": True}
+            return fail
 
-        for _ in range(self.max_attempts):
+        for attempt in range(1, self.max_attempts + 1):
             radius_m = self._sample_radius(is_urban)
             candidate = displace_point_geodesic(lon=lon, lat=lat, distance_m=radius_m)
             if _check(candidate):
-                return candidate
-        return None
+                dist_km = distance_points((lon, lat), candidate)
+                return {"lon": candidate[0], "lat": candidate[1],
+                        "distance_km": dist_km, "attempts": attempt,
+                        "success": True}
+        return fail
 
     def _sample_radius(self, is_urban: Optional[bool]) -> float:
         """Sample a displacement radius based on policy."""
         if self.config.method == "dhs":
-            return sample_dhs_radius(self.config.max_distance_for(is_urban))
+            return sample_donut_radius(0, self.config.max_distance_for(is_urban))
 
         if self.config.method == "donut":
             return sample_donut_radius(
