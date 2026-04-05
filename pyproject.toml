@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spatial-anonymization"
-version = "1.0.0"
+version = "0.1.0"
 description = "A Python package for anonymizing GPS coordinates from household surveys"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {file = "LICENSE.md", content-type = "text/markdown"}

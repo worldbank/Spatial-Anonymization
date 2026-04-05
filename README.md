@@ -120,7 +120,7 @@ import spatial_anonymization
 print(spatial_anonymization.__version__)
 
 # Test basic import
-from spatial_anonymization import anonymize_survey_data
+from spatial_anonymization import anonymize_survey_coordinates
 print("✓ Installation successful!")
 ```
 
@@ -147,13 +147,13 @@ conda install -c conda-forge gdal rasterio geopandas
 - **Python 3.10+** required
 - Tested on Python 3.10, 3.11, 3.12, 3.13 
 # Usage
-Refer to the comprehensive [usage examples notebook](https://github.com/worldbank/Spatial-Anonymization/blob/main/examples/usage_examples.ipynb) for detailed demonstrations of:
-- Simple API usage with auto-downloaded data
-- Config-based API for full control
-- Urban/rural differentiation
-- Spatial constraints (admin boundaries, water bodies)
-- Population-adaptive anonymization
-- Custom data sources 
+
+See the notebooks in [`notebooks/`](https://github.com/worldbank/Spatial-Anonymization/tree/dev/notebooks) for step-by-step guides:
+
+| Notebook | Description |
+| --- | --- |
+| [Getting Started](https://github.com/worldbank/Spatial-Anonymization/blob/dev/notebooks/getting_started.ipynb) | End-to-end anonymization workflow: load data, configure, run, inspect results |
+| [Downloading Geospatial Inputs](https://github.com/worldbank/Spatial-Anonymization/blob/dev/notebooks/downloading_geospatial_inputs.ipynb) | Download & inspect admin boundaries, population rasters, and water bodies |
 
 # Documentation
 This package is being developed as part of the **Surveys Geo-enhacement** project within DECAT. See [Survey Geo-enhacement repo](https://github.com/worldbank/DECAT_HH_Geovariables) for details. 
