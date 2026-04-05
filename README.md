@@ -63,21 +63,22 @@ This project uses [uv](https://github.com/astral-sh/uv) for fast, reliable packa
    pip install uv
    ```
 
-2. **Install the package from GitHub**:
+2. **Install the stable release** (recommended):
    ```bash
-   uv pip install git+https://github.com/worldbank/Spatial-Anonymization.git
+   uv pip install git+https://github.com/worldbank/Spatial-Anonymization.git@v0.1.0
    ```
 
-3. **For development installation** (editable mode):
+3. **Install the latest development version** (from `dev` branch):
+   ```bash
+   uv pip install git+https://github.com/worldbank/Spatial-Anonymization.git@dev
+   ```
+
+4. **For development installation** (editable mode):
    ```bash
    git clone https://github.com/worldbank/Spatial-Anonymization.git
    cd Spatial-Anonymization
+   git checkout dev
    uv pip install -e .
-   ```
-
-4. **With optional dependencies** (notebook support):
-   ```bash
-   uv pip install "git+https://github.com/worldbank/Spatial-Anonymization.git#egg=spatial-anonymization[notebook]"
    ```
 
 ---
@@ -85,16 +86,17 @@ This project uses [uv](https://github.com/astral-sh/uv) for fast, reliable packa
 ### Option 2: Using `pip`
 
 ```bash
-# Direct installation from GitHub
-pip install git+https://github.com/worldbank/Spatial-Anonymization.git
+# Stable release (recommended)
+pip install git+https://github.com/worldbank/Spatial-Anonymization.git@v0.1.0
+
+# Latest development version (dev branch)
+pip install git+https://github.com/worldbank/Spatial-Anonymization.git@dev
 
 # For editable/development installation
 git clone https://github.com/worldbank/Spatial-Anonymization.git
 cd Spatial-Anonymization
+git checkout dev
 pip install -e .
-
-# With optional dependencies
-pip install "git+https://github.com/worldbank/Spatial-Anonymization.git#egg=spatial-anonymization[notebook]"
 ```
 
 ---

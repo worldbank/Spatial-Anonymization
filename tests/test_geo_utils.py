@@ -1,5 +1,5 @@
 from build.lib.spatial_anonymization.point_displacement import distance_latlon_points
-from spatial_anonymization.geo_utils import (
+from spatial_anonymization.geospatial.geo_utils import (
     distance_points,
     displace_point_geodesic,
 )
