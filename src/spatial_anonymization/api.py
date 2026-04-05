@@ -102,31 +102,38 @@ def _print_config(
                            f"Same distance for all ({reason})"))
     lines.append(_sep())
 
-    # Population policy
-    lines.append(_section("POPULATION POLICY"))
-    lines.append(_row("min_population", config.min_population or "None",
-                       "Min people within displacement radius"))
-    lines.append(_row("pop_search_max_r", f"{config.population_search_max_radius} m"
-                       if config.population_search_max_radius else "None",
-                       "Max search radius for population"))
-    lines.append(_row("pop_step_m", f"{config.population_step_m} m",
-                       "Radius expansion increment"))
-    lines.append(_row("disp_pop_radius", f"{int(config.displaced_pop_radius_m)} m",
-                       "Post-displacement pop buffer"))
-    lines.append(_sep())
+    # Population policy — only show if population params are active
+    has_pop_policy = (
+        config.min_population is not None
+        or config.method == "population_adaptive"
+    )
+    if has_pop_policy:
+        lines.append(_section("POPULATION POLICY"))
+        lines.append(_row("min_population", config.min_population or "None",
+                           "Min people within displacement radius"))
+        lines.append(_row("pop_search_max_r", f"{config.population_search_max_radius} m"
+                           if config.population_search_max_radius else "None",
+                           "Max search radius for population"))
+        lines.append(_row("pop_step_m", f"{config.population_step_m} m",
+                           "Radius expansion increment"))
+        lines.append(_row("disp_pop_radius", f"{int(config.displaced_pop_radius_m)} m",
+                           "Post-displacement pop buffer"))
+        lines.append(_sep())
 
-    # Spatial constraints
+    # Spatial constraints — only show active constraints
     lines.append(_section("SPATIAL CONSTRAINTS"))
     lines.append(_row("admin_level", config.admin_level,
                        "Administrative boundary level"))
     lines.append(_row("enforce_admin", config.enforce_admin_boundary,
                        "Keep points inside admin unit"))
-    lines.append(_row("enforce_water", config.enforce_water_constraint,
-                       "Avoid displacing into water"))
-    lines.append(_row("water_strict", config.water_constraint_strict,
-                       "Reject (vs warn) if point in water"))
-    lines.append(_row("enforce_road", config.enforce_road_constraint,
-                       "Avoid displacing onto roads"))
+    if config.relax_admin_constraint_on_failure:
+        lines.append(_row("relax_admin_fail", config.relax_admin_constraint_on_failure,
+                           "Retry without admin if all attempts fail"))
+    if config.enforce_water_constraint:
+        lines.append(_row("enforce_water", config.enforce_water_constraint,
+                           "Avoid displacing into water"))
+        lines.append(_row("water_strict", config.water_constraint_strict,
+                           "Reject (vs warn) if point in water"))
 
     lines.append("╚" + "═" * (W + 1) + "╝")
 
@@ -141,7 +148,6 @@ def anonymize_survey_coordinates(
     admin_boundaries: Optional[Union[str, Path, gpd.GeoDataFrame]] = None,
     population_raster: Optional[Union[str, Path]] = None,
     water_boundaries: Optional[Union[str, Path, gpd.GeoDataFrame]] = None,
-    roads: Optional[Union[str, Path, gpd.GeoDataFrame]] = None,
     # Input data schema
     lon_col: str = "lon",
     lat_col: str = "lat",
@@ -161,9 +167,9 @@ def anonymize_survey_coordinates(
     admin_level: Optional[int] = None,
     # Download and constraint options
     population_year: int = 2025,
-    enforce_admin_boundary: bool = False,
-    enforce_water_constraint: bool = False,
-    enforce_road_constraint: bool = False,
+    enforce_admin_boundary: Optional[bool] = None,
+    enforce_water_constraint: Optional[bool] = None,
+    relax_admin_constraint_on_failure: Optional[bool] = None,
     # Execution options
     utm_epsg: Optional[int] = None,
     max_attempts: int = 100,
@@ -172,7 +178,7 @@ def anonymize_survey_coordinates(
     out_lon_col: str = "lon_anon",
     out_lat_col: str = "lat_anon",
     output_dir: Optional[str] = None,
-    extract_displaced_population: bool = False,
+    extract_displaced_population: Optional[bool] = None,
 ) -> pd.DataFrame:
     """
     Anonymize survey GPS coordinates.
@@ -200,9 +206,6 @@ def anonymize_survey_coordinates(
         water_boundaries (str, Path, or GeoDataFrame, optional):
             Water bodies to avoid when displacing points.
             If None and enforce_water_constraint=True, auto-downloads from OSM.
-        roads (str, Path, or GeoDataFrame, optional):
-            Road network to avoid when displacing points.
-            If None and enforce_road_constraint=True, auto-downloads from OSM.
         lon_col (str):
             Name of longitude column. Default: "lon".
         lat_col (str):
@@ -247,10 +250,10 @@ def anonymize_survey_coordinates(
             Whether to avoid water bodies. If True and water_boundaries is None,
             auto-downloads from OSM. If None, inherits from preset.
             DHS default: True.
-        enforce_road_constraint (bool, optional):
-            Whether to avoid roads. If True and roads is None,
-            auto-downloads from OSM. If None, inherits from preset.
-            DHS default: False.
+        relax_admin_constraint_on_failure (bool, optional):
+            If True, retries anonymization without the admin boundary
+            constraint when all attempts fail with it enabled.
+            If None, inherits from preset. Default: False.
         utm_epsg (int, optional):
             UTM EPSG code for distance calculations. If None, inferred from admin boundaries.
         max_attempts (int):
@@ -342,10 +345,10 @@ def anonymize_survey_coordinates(
             _overrides["enforce_admin_boundary"] = enforce_admin_boundary
         if enforce_water_constraint is not None:
             _overrides["enforce_water_constraint"] = enforce_water_constraint
-        if enforce_road_constraint is not None:
-            _overrides["enforce_road_constraint"] = enforce_road_constraint
         if extract_displaced_population is not None:
             _overrides["extract_displaced_population"] = extract_displaced_population
+        if relax_admin_constraint_on_failure is not None:
+            _overrides["relax_admin_constraint_on_failure"] = relax_admin_constraint_on_failure
 
         config = dc_replace(base_config, **_overrides) if _overrides else base_config
 
@@ -378,14 +381,6 @@ def anonymize_survey_coordinates(
         else:
             water_gdf = water_boundaries.copy()
 
-    # Load roads if provided
-    roads_gdf = None
-    if roads is not None:
-        if isinstance(roads, (str, Path)):
-            roads_gdf = gpd.read_file(roads)
-        else:
-            roads_gdf = roads.copy()
-
     # Convert population_raster to string if Path
     pop_raster_path = str(population_raster) if population_raster else None
 
@@ -403,7 +398,6 @@ def anonymize_survey_coordinates(
         admin_level=config.admin_level,
         population_raster_path=pop_raster_path,
         water_gdf=water_gdf,
-        roads_gdf=roads_gdf,
         utm_epsg=utm_epsg,
         auto_download=auto_download,
         download_dir=download_dir,
@@ -414,7 +408,6 @@ def anonymize_survey_coordinates(
         f"[Inputs] admin={'yes' if inputs.has_admin() else 'no'}, "
         f"population={'yes' if inputs.has_population() else 'no'}, "
         f"water={'yes' if inputs.has_water() else 'no'}, "
-        f"roads={'yes' if inputs.has_roads() else 'no'}, "
         f"utm_epsg={inputs.get_utm_epsg()}"
     )
 
@@ -483,6 +476,10 @@ def anonymize_survey_coordinates(
         n_failed_displacement=n_failed_displacement,
         n_succeeded=n_succeeded,
     )
+
+    # Drop failed displacement rows — these are already saved to
+    # intermediate_data/failed_displacement.csv by the anonymizer.
+    result = result.dropna(subset=[out_lon_col, out_lat_col]).reset_index(drop=True)
 
     return result
 

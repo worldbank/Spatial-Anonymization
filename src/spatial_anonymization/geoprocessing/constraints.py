@@ -3,7 +3,7 @@ Geometric constraints for spatial anonymization.
 
 This module defines simple, atomic predicate functions that evaluate
 whether a candidate anonymized point satisfies specific spatial
-constraints such as administrative boundaries, water bodies, and roads.
+constraints such as administrative boundaries and water bodies.
 
 These predicates are designed to be:
 - deterministic
@@ -59,29 +59,6 @@ def is_in_water(
     return len(hits) > 0
 
 
-def is_on_road(
-    point: Point,
-    roads_gdf: Optional[gpd.GeoDataFrame],
-    buffer_m: float,
-) -> bool:
-    """Check whether a point lies on or near a road.
-
-    A buffer is applied to road geometries to allow proximity-based
-    exclusion.
-
-    Args:
-        point (Point): Candidate anonymized point.
-        roads_gdf (GeoDataFrame, optional): Road geometries.
-        buffer_m (float): Buffer distance around roads.
-
-    Returns:
-        bool: True if point lies within buffered road geometry.
-    """
-    if roads_gdf is None or roads_gdf.empty:
-        return False
-
-    return bool(roads_gdf.buffer(buffer_m).contains(point).any())
-
 
 # ==============================================================
 # COMBINED CONSTRAINT EVALUATOR (OPTIONAL CONVENIENCE)
@@ -93,9 +70,6 @@ def passes_constraints(
     admin_geom: Optional[Polygon] = None,
     prepared_admin=None,
     water_gdf: Optional[gpd.GeoDataFrame] = None,
-    roads_gdf: Optional[gpd.GeoDataFrame] = None,
-    road_buffer_m: float = 0.0,
-    allow_roads: bool = True,
 ) -> bool:
     """Evaluate whether a point satisfies all enabled spatial constraints.
 
@@ -106,9 +80,6 @@ def passes_constraints(
         point (Point): Candidate anonymized point.
         admin_geom (Polygon, optional): Admin boundary constraint.
         water_gdf (GeoDataFrame, optional): Water body constraint.
-        roads_gdf (GeoDataFrame, optional): Road geometries.
-        road_buffer_m (float): Buffer distance for road exclusion.
-        allow_roads (bool): Whether points on roads are permitted.
 
     Returns:
         bool: True if all enabled constraints are satisfied.
@@ -120,13 +91,6 @@ def passes_constraints(
         return False
 
     if water_gdf is not None and is_in_water(point, water_gdf):
-        return False
-
-    if (
-        roads_gdf is not None
-        and not allow_roads
-        and is_on_road(point, roads_gdf, road_buffer_m)
-    ):
         return False
 
     return True

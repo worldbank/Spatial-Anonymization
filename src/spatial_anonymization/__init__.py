@@ -36,6 +36,6 @@ __all__ = [
     "InputsManager",
     # Diagnostics
     "plot_displacement_comparison",
-    # Presets module (use: from spatial_anonymization.config.presets import DHS, WB_LSMS)
+    # Presets module (use: from spatial_anonymization.config.presets import DHS)
     "presets",
 ]

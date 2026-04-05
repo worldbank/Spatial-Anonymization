@@ -18,7 +18,7 @@ class DataSourcesConfig:
     Configuration for spatial input data sources and providers.
 
     This configuration specifies which data sources to use for admin boundaries,
-    population, water bodies, and roads. It enables reproducibility by documenting
+    population, water bodies, etc. It enables reproducibility by documenting
     exactly which datasets were used for anonymization.
     """
 
@@ -135,22 +135,6 @@ class DataSourcesConfig:
     )
 
     # ==================================================================
-    # ROADS
-    # ==================================================================
-
-    road_source: Literal["osm", "user_provided", "none"] = field(
-        default="none",
-        metadata={
-            "description": (
-                "Source for road network geometries. "
-                "'osm' uses OpenStreetMap via Overpass API (future), "
-                "'user_provided' indicates custom shapefile, "
-                "'none' disables road constraints (default)."
-            )
-        }
-    )
-
-    # ==================================================================
     # DOWNLOAD BEHAVIOR
     # ==================================================================
 
@@ -185,17 +169,9 @@ class DataSourcesConfig:
     )
 
 
+
 @dataclass(slots=True)
 class AnonymizationParams:
-    relax_admin_constraint_on_failure: bool = field(
-        default=False,
-        metadata={
-            "description": (
-                "If True, will retry anonymization without the admin region constraint if all attempts fail with it. "
-                "This allows more flexibility for hard-to-anonymize points."
-            )
-        },
-    )
     """
     Policy configuration for spatial anonymization.
 
@@ -203,6 +179,7 @@ class AnonymizationParams:
     not *how data are prepared*. All preprocessing (e.g., clustering,
     deduplication, CRS handling) is expected to occur upstream.
     """
+    # ...existing fields...
 
     method: Literal["dhs", "donut", "population_adaptive"] = field(
         metadata={
@@ -214,6 +191,16 @@ class AnonymizationParams:
                 "based on a minimum population threshold."
             )
         }
+    )
+
+    relax_admin_constraint_on_failure: bool = field(
+        default=False,
+        metadata={
+            "description": (
+                "If True, will retry anonymization without the admin region constraint if all attempts fail with it. "
+                "This allows more flexibility for hard-to-anonymize points."
+            )
+        },
     )
 
     extract_displaced_population: bool = field(
@@ -405,27 +392,6 @@ class AnonymizationParams:
         },
     )
 
-    enforce_road_constraint: bool = field(
-        default=False,
-        metadata={
-            "description": (
-                "Whether anonymized coordinates should avoid major road "
-                "infrastructure. Typically disabled by default."
-            )
-        },
-    )
-
-    road_buffer_m: Optional[float] = field(
-        default=None,
-        metadata={
-            "description": (
-                "Buffer distance (in meters) around road geometries used "
-                "to determine whether a point is considered 'on a road'. "
-                "Only relevant if enforce_road_constraint is True."
-            )
-        },
-    )
-
     # ==================================================================
     # DATA SOURCES
     # ==================================================================
@@ -436,7 +402,7 @@ class AnonymizationParams:
             "description": (
                 "Configuration for spatial input data sources. "
                 "Specifies which datasets and providers to use for "
-                "admin boundaries, population, water bodies, and roads."
+                "admin boundaries, population, and water bodies."
             )
         }
     )

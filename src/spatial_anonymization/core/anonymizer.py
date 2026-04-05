@@ -15,16 +15,14 @@ All coordinates are assumed to be WGS84 decimal degrees.
 """
 
 from __future__ import annotations
-
 import os
 import random
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Optional, Tuple
-
 import pandas as pd
 from shapely.geometry import Point, Polygon
 import geopandas as gpd
-
+from shapely.prepared import prep as shapely_prep
 from spatial_anonymization.config.params import AnonymizationParams
 from spatial_anonymization.data.inputs_manager import InputsManager
 from spatial_anonymization.geoprocessing.geo_utils import (
@@ -40,6 +38,9 @@ from spatial_anonymization.geoprocessing.population import (
 )
 from spatial_anonymization.geoprocessing.constraints import passes_constraints
 
+
+
+
 # Min points before spawning worker processes (avoids pool overhead on tiny data)
 _PARALLEL_THRESHOLD = 50
 
@@ -47,17 +48,88 @@ _PARALLEL_THRESHOLD = 50
 # ---- Shared data for worker processes (set via pool initializer) ----
 _worker_config: Optional[AnonymizationParams] = None
 _worker_water_gdf: Optional[gpd.GeoDataFrame] = None
-_worker_roads_gdf: Optional[gpd.GeoDataFrame] = None
 _worker_max_attempts: int = 50
 
+def _worker_anonymize_point_with_radius(
+    lon: float,
+    lat: float,
+    is_urban: Optional[bool],
+    admin_geom: Optional[Polygon],
+    max_radius: Optional[float],
+) -> dict:
+    """Worker for DHS 10% rural rule: uses provided max_radius if not None."""
 
-def _init_worker(config, max_attempts, water_gdf, roads_gdf):
+    config = _worker_config
+    max_attempts = _worker_max_attempts
+    water_gdf = _worker_water_gdf
+
+    prepared_admin = shapely_prep(admin_geom) if admin_geom is not None else None
+
+    def _passes(candidate: Tuple[float, float]) -> bool:
+        point = Point(candidate[0], candidate[1])
+        return passes_constraints(
+            point=point,
+            prepared_admin=prepared_admin,
+            water_gdf=water_gdf,
+        )
+
+    fail = {"lon": None, "lat": None, "distance_km": None,
+            "attempts": max_attempts, "success": False}
+
+    # --- DHS / Donut methods ---
+    if config.method in ("dhs", "donut"):
+        for attempt in range(1, max_attempts + 1):
+            if config.method == "dhs":
+                use_radius = max_radius if max_radius is not None else config.max_distance_for(is_urban)
+                radius_m = sample_donut_radius(0, use_radius)
+            else:
+                use_radius = max_radius if max_radius is not None else config.max_distance_for(is_urban)
+                radius_m = sample_donut_radius(
+                    config.min_distance_for(is_urban),
+                    use_radius,
+                )
+            candidate = displace_point_geodesic(lon=lon, lat=lat, distance_m=radius_m)
+            if _passes(candidate):
+                dist_km = distance_points((lon, lat), candidate)
+                return {"lon": candidate[0], "lat": candidate[1],
+                        "distance_km": dist_km, "attempts": attempt,
+                        "success": True, "relaxed_admin": False,
+                        "max_radius_assigned": use_radius}
+        # If all attempts fail and relax_admin_constraint_on_failure is True, retry without admin constraint
+        if getattr(config, "relax_admin_constraint_on_failure", False) and prepared_admin is not None:
+            for attempt in range(1, max_attempts + 1):
+                if config.method == "dhs":
+                    use_radius = max_radius if max_radius is not None else config.max_distance_for(is_urban)
+                    radius_m = sample_donut_radius(0, use_radius)
+                else:
+                    use_radius = max_radius if max_radius is not None else config.max_distance_for(is_urban)
+                    radius_m = sample_donut_radius(
+                        config.min_distance_for(is_urban),
+                        use_radius,
+                    )
+                candidate = displace_point_geodesic(lon=lon, lat=lat, distance_m=radius_m)
+                # Pass None for prepared_admin to relax the constraint
+                if passes_constraints(
+                    point=Point(candidate[0], candidate[1]),
+                    prepared_admin=None,
+                    water_gdf=water_gdf,
+                ):
+                    dist_km = distance_points((lon, lat), candidate)
+                    return {"lon": candidate[0], "lat": candidate[1],
+                            "distance_km": dist_km, "attempts": attempt + max_attempts,
+                            "success": True, "relaxed_admin": True,
+                            "max_radius_assigned": use_radius}
+        return fail
+    # --- population_adaptive is NOT parallelised (rasterio not picklable) ---
+    return fail
+
+
+def _init_worker(config, max_attempts, water_gdf):
     """Initialize large shared data once per worker process."""
-    global _worker_config, _worker_water_gdf, _worker_roads_gdf, _worker_max_attempts
+    global _worker_config, _worker_water_gdf, _worker_max_attempts
     _worker_config = config
     _worker_max_attempts = max_attempts
     _worker_water_gdf = water_gdf
-    _worker_roads_gdf = roads_gdf
     # Pre-build spatial index in each worker
     if _worker_water_gdf is not None and not _worker_water_gdf.empty:
         _ = _worker_water_gdf.sindex
@@ -73,15 +145,10 @@ def _worker_anonymize_point(
 
     Returns a dict with keys: lon, lat, distance_km, attempts, success.
     """
-    from shapely.prepared import prep as shapely_prep
-
     config = _worker_config
     max_attempts = _worker_max_attempts
     water_gdf = _worker_water_gdf
-    roads_gdf = _worker_roads_gdf
 
-    road_buffer_m = config.road_buffer_m or 0.0
-    allow_roads = not config.enforce_road_constraint
     prepared_admin = shapely_prep(admin_geom) if admin_geom is not None else None
 
     def _passes(candidate: Tuple[float, float]) -> bool:
@@ -90,9 +157,6 @@ def _worker_anonymize_point(
             point=point,
             prepared_admin=prepared_admin,
             water_gdf=water_gdf,
-            roads_gdf=roads_gdf,
-            road_buffer_m=road_buffer_m,
-            allow_roads=allow_roads,
         )
 
     fail = {"lon": None, "lat": None, "distance_km": None,
@@ -102,27 +166,32 @@ def _worker_anonymize_point(
     if config.method in ("dhs", "donut"):
         for attempt in range(1, max_attempts + 1):
             if config.method == "dhs":
-                radius_m = sample_donut_radius(0, config.max_distance_for(is_urban))
+                max_radius = config.max_distance_for(is_urban)
+                radius_m = sample_donut_radius(0, max_radius)
             else:
+                max_radius = config.max_distance_for(is_urban)
                 radius_m = sample_donut_radius(
                     config.min_distance_for(is_urban),
-                    config.max_distance_for(is_urban),
+                    max_radius,
                 )
             candidate = displace_point_geodesic(lon=lon, lat=lat, distance_m=radius_m)
             if _passes(candidate):
                 dist_km = distance_points((lon, lat), candidate)
                 return {"lon": candidate[0], "lat": candidate[1],
                         "distance_km": dist_km, "attempts": attempt,
-                        "success": True, "relaxed_admin": False}
+                        "success": True, "relaxed_admin": False,
+                        "max_radius_assigned": max_radius}
         # If all attempts fail and relax_admin_constraint_on_failure is True, retry without admin constraint
         if getattr(config, "relax_admin_constraint_on_failure", False) and prepared_admin is not None:
             for attempt in range(1, max_attempts + 1):
                 if config.method == "dhs":
-                    radius_m = sample_donut_radius(0, config.max_distance_for(is_urban))
+                    max_radius = config.max_distance_for(is_urban)
+                    radius_m = sample_donut_radius(0, max_radius)
                 else:
+                    max_radius = config.max_distance_for(is_urban)
                     radius_m = sample_donut_radius(
                         config.min_distance_for(is_urban),
-                        config.max_distance_for(is_urban),
+                        max_radius,
                     )
                 candidate = displace_point_geodesic(lon=lon, lat=lat, distance_m=radius_m)
                 # Pass None for prepared_admin to relax the constraint
@@ -130,14 +199,12 @@ def _worker_anonymize_point(
                     point=Point(candidate[0], candidate[1]),
                     prepared_admin=None,
                     water_gdf=water_gdf,
-                    roads_gdf=roads_gdf,
-                    road_buffer_m=road_buffer_m,
-                    allow_roads=allow_roads,
                 ):
                     dist_km = distance_points((lon, lat), candidate)
                     return {"lon": candidate[0], "lat": candidate[1],
                             "distance_km": dist_km, "attempts": attempt + max_attempts,
-                            "success": True, "relaxed_admin": True}
+                            "success": True, "relaxed_admin": True,
+                            "max_radius_assigned": max_radius}
         return fail
 
     # --- population_adaptive is NOT parallelised (rasterio not picklable) ---
@@ -296,10 +363,6 @@ class SurveyAnonymizer:
             self.inputs.get_water_gdf()
             if self.config.enforce_water_constraint else None
         )
-        roads_gdf = (
-            self.inputs.get_roads_gdf()
-            if self.config.enforce_road_constraint else None
-        )
 
         # ---------------------------------------------------------
         # Per-point admin boundary: spatial-join each original point
@@ -342,12 +405,51 @@ class SurveyAnonymizer:
 
         print(f"[Anonymizer] Displacing {n_total} points")
 
+
+        # --- 10% rural rule assignment (DHS method) ---
         points = []
-        for i, (_, row) in enumerate(df.iterrows()):
-            raw = row[urban_col] if urban_col else None
-            is_urban = (raw == urban_value) if raw is not None else None
-            pt_admin = admin_geom_lookup.get(df.index[i], admin_fallback)
-            points.append((row[lon_col], row[lat_col], is_urban, pt_admin))
+        assigned_max_radii = []
+        rural_indices = []
+        if self.config.method == "dhs" and self.config.rural_extra_max_distance and self.config.rural_extra_proportion > 0 and urban_col:
+            # Identify rural points
+            for i, (_, row) in enumerate(df.iterrows()):
+                raw = row[urban_col] if urban_col else None
+                is_urban = (raw == urban_value) if raw is not None else None
+                if is_urban is False:
+                    rural_indices.append(i)
+            n_rural = len(rural_indices)
+            n_extra = int(round(self.config.rural_extra_proportion * n_rural))
+            extra_indices = set(random.sample(rural_indices, n_extra)) if n_extra > 0 else set()
+            for i, (_, row) in enumerate(df.iterrows()):
+                raw = row[urban_col] if urban_col else None
+                is_urban = (raw == urban_value) if raw is not None else None
+                pt_admin = admin_geom_lookup.get(df.index[i], admin_fallback)
+                if is_urban is True:
+                    max_radius = self.config.urban_max_distance or self.config.max_distance
+                elif is_urban is False:
+                    if i in extra_indices:
+                        max_radius = self.config.rural_extra_max_distance
+                    else:
+                        max_radius = self.config.rural_max_distance or self.config.max_distance
+                else:
+                    max_radius = self.config.max_distance
+                points.append((row[lon_col], row[lat_col], is_urban, pt_admin, max_radius))
+                assigned_max_radii.append(max_radius)
+        else:
+            for i, (_, row) in enumerate(df.iterrows()):
+                raw = row[urban_col] if urban_col else None
+                is_urban = (raw == urban_value) if raw is not None else None
+                pt_admin = admin_geom_lookup.get(df.index[i], admin_fallback)
+                max_radius = None
+                if self.config.method == "dhs" and is_urban is not None:
+                    if is_urban:
+                        max_radius = self.config.urban_max_distance or self.config.max_distance
+                    else:
+                        max_radius = self.config.rural_max_distance or self.config.max_distance
+                elif self.config.method == "dhs":
+                    max_radius = self.config.max_distance
+                points.append((row[lon_col], row[lat_col], is_urban, pt_admin, max_radius))
+                assigned_max_radii.append(max_radius)
 
         # Report urban/rural breakdown and effective distances
         if urban_col:
@@ -369,20 +471,21 @@ class SurveyAnonymizer:
                 f"using fallback max_distance={self.config.max_distance}m for all points"
             )
 
+
         if use_parallel and n_total >= _PARALLEL_THRESHOLD:
             print(f"[Anonymizer] Using {effective_workers} worker processes")
             results = [None] * n_total
             with ProcessPoolExecutor(
                 max_workers=effective_workers,
                 initializer=_init_worker,
-                initargs=(self.config, self.max_attempts, water_gdf, roads_gdf),
+                initargs=(self.config, self.max_attempts, water_gdf),
             ) as pool:
                 future_to_idx = {
                     pool.submit(
-                        _worker_anonymize_point,
-                        lon, lat, is_urban, pt_admin,
+                        _worker_anonymize_point_with_radius,
+                        lon, lat, is_urban, pt_admin, max_radius
                     ): i
-                    for i, (lon, lat, is_urban, pt_admin) in enumerate(points)
+                    for i, (lon, lat, is_urban, pt_admin, max_radius) in enumerate(points)
                 }
                 processed = 0
                 for future in as_completed(future_to_idx):
@@ -403,9 +506,9 @@ class SurveyAnonymizer:
                     self._pop_provider = RasterPopulationProvider(
                         raster_path=str(self.inputs.population_raster_path),
                     )
-            for idx, (lon, lat, is_urban, pt_admin) in enumerate(points, 1):
+            for idx, (lon, lat, is_urban, pt_admin, max_radius) in enumerate(points, 1):
                 result = self._anonymize_point_with_admin(
-                    lon, lat, is_urban=is_urban, admin_geom=pt_admin,
+                    lon, lat, is_urban=is_urban, admin_geom=pt_admin, max_radius=max_radius
                 )
                 results.append(result)
                 if idx % 100 == 0 or idx == n_total:
@@ -415,6 +518,15 @@ class SurveyAnonymizer:
         df[out_lat_col] = [r["lat"] for r in results]
         df["distance_km"] = [r["distance_km"] for r in results]
         df["attempts"] = [r["attempts"] for r in results]
+        # Add max_radius_assigned column if present in results
+        if any("max_radius_assigned" in r for r in results):
+            df["max_radius_assigned"] = [r.get("max_radius_assigned") for r in results]
+        # Add relaxed_admin column if present in results
+        if any("relaxed_admin" in r for r in results):
+            df["relaxed_admin"] = [r.get("relaxed_admin", False) for r in results]
+
+        # Record the admin level used as the constraining boundary
+        df["constraining_admin"] = f"adm{self.config.admin_level}"
 
         succeeded = df[out_lon_col].notna().sum()
         failed = n_total - succeeded
@@ -519,23 +631,13 @@ class SurveyAnonymizer:
         *,
         is_urban: Optional[bool] = None,
         admin_geom: Optional[Polygon] = None,
+        max_radius: Optional[float] = None,
     ) -> dict:
-        """Anonymize a single point using a specific admin polygon for constraint.
-
-        Returns a dict with keys: lon, lat, distance_km, attempts, success.
-        """
-        from shapely.prepared import prep as shapely_prep
-
+        """Anonymize a single point using a specific admin polygon for constraint, optionally using max_radius."""
         water_gdf = (
             self.inputs.get_water_gdf()
             if self.config.enforce_water_constraint else None
         )
-        roads_gdf = (
-            self.inputs.get_roads_gdf()
-            if self.config.enforce_road_constraint else None
-        )
-        road_buffer_m = self.config.road_buffer_m or 0.0
-        allow_roads = not self.config.enforce_road_constraint
         prepared_admin = shapely_prep(admin_geom) if admin_geom is not None else None
 
         def _check(candidate: Tuple[float, float]) -> bool:
@@ -544,9 +646,6 @@ class SurveyAnonymizer:
                 point=point,
                 prepared_admin=prepared_admin,
                 water_gdf=water_gdf,
-                roads_gdf=roads_gdf,
-                road_buffer_m=road_buffer_m,
-                allow_roads=allow_roads,
             )
 
         fail = {"lon": None, "lat": None, "distance_km": None,
@@ -578,14 +677,63 @@ class SurveyAnonymizer:
                             "success": True}
             return fail
 
+        # DHS/Donut: use max_radius if provided
         for attempt in range(1, self.max_attempts + 1):
-            radius_m = self._sample_radius(is_urban)
+            if self.config.method == "dhs":
+                use_radius = max_radius if max_radius is not None else self.config.max_distance_for(is_urban)
+                radius_m = sample_donut_radius(0, use_radius)
+            elif self.config.method == "donut":
+                use_radius = max_radius if max_radius is not None else self.config.max_distance_for(is_urban)
+                radius_m = sample_donut_radius(
+                    self.config.min_distance_for(is_urban),
+                    use_radius,
+                )
+            else:
+                radius_m = self._sample_radius(is_urban)
+                use_radius = None
             candidate = displace_point_geodesic(lon=lon, lat=lat, distance_m=radius_m)
             if _check(candidate):
                 dist_km = distance_points((lon, lat), candidate)
-                return {"lon": candidate[0], "lat": candidate[1],
-                        "distance_km": dist_km, "attempts": attempt,
-                        "success": True}
+                result = {"lon": candidate[0], "lat": candidate[1],
+                          "distance_km": dist_km, "attempts": attempt,
+                          "success": True, "relaxed_admin": False}
+                if use_radius is not None:
+                    result["max_radius_assigned"] = use_radius
+                return result
+
+        # If all attempts fail and relax_admin_constraint_on_failure is True, retry without admin constraint
+        if getattr(self.config, "relax_admin_constraint_on_failure", False) and prepared_admin is not None:
+            def _check_relaxed(candidate: Tuple[float, float]) -> bool:
+                point = Point(candidate[0], candidate[1])
+                return passes_constraints(
+                    point=point,
+                    prepared_admin=None,
+                    water_gdf=water_gdf,
+                )
+
+            for attempt in range(1, self.max_attempts + 1):
+                if self.config.method == "dhs":
+                    use_radius = max_radius if max_radius is not None else self.config.max_distance_for(is_urban)
+                    radius_m = sample_donut_radius(0, use_radius)
+                elif self.config.method == "donut":
+                    use_radius = max_radius if max_radius is not None else self.config.max_distance_for(is_urban)
+                    radius_m = sample_donut_radius(
+                        self.config.min_distance_for(is_urban),
+                        use_radius,
+                    )
+                else:
+                    radius_m = self._sample_radius(is_urban)
+                    use_radius = None
+                candidate = displace_point_geodesic(lon=lon, lat=lat, distance_m=radius_m)
+                if _check_relaxed(candidate):
+                    dist_km = distance_points((lon, lat), candidate)
+                    result = {"lon": candidate[0], "lat": candidate[1],
+                              "distance_km": dist_km, "attempts": attempt + self.max_attempts,
+                              "success": True, "relaxed_admin": True}
+                    if use_radius is not None:
+                        result["max_radius_assigned"] = use_radius
+                    return result
+
         return fail
 
     def _sample_radius(self, is_urban: Optional[bool]) -> float:
@@ -610,7 +758,4 @@ class SurveyAnonymizer:
             point=point,
             admin_geom=self.inputs.get_admin_polygon() if self.config.enforce_admin_boundary else None,
             water_gdf=self.inputs.get_water_gdf() if self.config.enforce_water_constraint else None,
-            roads_gdf=self.inputs.get_roads_gdf() if self.config.enforce_road_constraint else None,
-            road_buffer_m=self.config.road_buffer_m or 0.0,
-            allow_roads=not self.config.enforce_road_constraint,
         )
