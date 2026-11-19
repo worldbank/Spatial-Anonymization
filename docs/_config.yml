@@ -1,11 +1,12 @@
 # Book settings
-title:
+title: Spatial Anonymization
 author: World Bank Development Data Group
-logo: docs/images/logo.png
+copyright: "2026"
 only_build_toc_files: true
+exclude_patterns: [".github/*", "_build", "src", "tests", "data", ".venv"]
 
 repository:
-  url: https://github.com/worldbank/template
+  url: https://github.com/worldbank/Spatial-Anonymization
   branch: main
 
 #######################################################################################
@@ -16,15 +17,14 @@ html:
   use_edit_page_button: true
   use_repository_button: true
   use_issues_button: true
-  baseurl: https://worldbank.github.io/template
+  baseurl: https://worldbank.github.io/Spatial-Anonymization
 
 #######################################################################################
 # Execution settings
+# Notebooks are NOT re-executed on build: they need confidential survey data and
+# local geospatial files that are not in the repo. The saved outputs are rendered.
 execute:
-  execute_notebooks: force
-  allow_errors: true
-  exclude_patterns:
-    - notebooks/nasa-apod.ipynb
+  execute_notebooks: "off"
 
 #######################################################################################
 # Sphinx settings

@@ -1,6 +1,5 @@
 
 # Background 
-----
 **spatial-anonymization** is a Python package developed by <span style="color:#3EACAD"> DECAT team at the World Bank Group</span>. The package has utilities to enable anonymization of GPS coordinates. For example, given highly confidential household GPS coordinates from a survey which need to be disseminated, **spatial-anonymization** enables one to perturb the raw coordinates and generate new anomymized coordinates with dramatically reduced risk of household re-identification. The anonymization techniques in this package have been adapted and inspired from the following works.
 1. [**The DHS Program Geographic Displacement Procedure.**](https://www.dhsprogram.com/pubs/pdf/SAR7/SAR7.pdf). Implementation of displacement in the ```SimpleDisplacer``` class is based on the procedure described in this manual.
 2. [**UNSD Guidelines on Spatial Anonymization.**](https://unstats.un.org/unsd/statcom/52nd-session/documents/BG-3l-Spatial_Anonymization-E.pdf). The UN Statistics Division(UNSD) in coordination with the World Bank Group and DHS Program developed guidelines on how to mask GPS coordinates from surveys. In addition, the guidelines also describes quantitative meausures of household re-identification (disclosure) after the anonymization process. The package implements some of these guidelines.
