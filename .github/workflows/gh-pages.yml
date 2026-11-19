@@ -6,8 +6,15 @@ on:
       - main
   workflow_dispatch:
 
+# Pages source is set to "GitHub Actions" in the repo settings.
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -23,10 +30,16 @@ jobs:
         run: pip install -r docs/requirements.txt
       - name: Build
         run: jupyter-book build . --config docs/_config.yml --toc docs/_toc.yml --warningiserror --keep-going
-      - name: Deploy
-        uses: peaceiris/actions-gh-pages@v4
-        if: github.ref == 'refs/heads/main' && job.status == 'success'
+      - uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./_build/html
-          enable_jekyll: false
+          path: ./_build/html
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
