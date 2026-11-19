@@ -1,0 +1,1427 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>1. Spatial Anonymization – Usage Examples &#8212; Spatial Anonymization</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=55c26ed414f5f8a31ebb" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+    <link rel="stylesheet" type="text/css" href="../_static/togglebutton.css?v=9c3e77be" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/mystnb.11b39860a7a0cbfd473a3ad8a317855267ff0bd372690045ca344a6b62be495e.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-thebe.css?v=4fa983c6" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=6a604523" />
+  
+  <!-- So that users can add custom icons -->
+  <script defer src="../_static/scripts/fontawesome.js?digest=55c26ed414f5f8a31ebb"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb" />
+
+    <script src="../_static/documentation_options.js?v=9eb32ce0"></script>
+    <script src="../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../_static/togglebutton.js?v=b8b12719"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script data-sd-tabs-storage-prefix="sphinx-design-tab-id-" src="../_static/design-tabs.js?v=fcb327ea"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script async="async" src="../_static/sphinx-thebe.js?v=c100c467"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown';</script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"; const thebe_selector = ".thebe,.cell"; const thebe_selector_input = "pre"; const thebe_selector_output = ".output, .cell_output"</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'notebooks/getting_started';</script>
+    <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
+    <link rel="canonical" href="https://worldbank.github.io/Spatial-Anonymization/notebooks/getting_started.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="2. Downloading &amp; Inspecting Geospatial Inputs" href="downloading_geospatial_inputs.html" />
+    <link rel="prev" title="Spatial Anonymization: Three-Stage Mental Model" href="../docs/anonymization_procedure.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+    <meta name="docbuild:last-update" content="Nov 19, 2026"/>
+  
+    
+    <script src="../_static/searchtools.js"></script>
+    <script src="../_static/language_data.js"></script>
+    <script src="../searchindex.js"></script>
+  
+  </head>
+  <body data-default-mode="">
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+  
+  
+  
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search this book..."
+         aria-label="Search this book..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header id="pst-header" class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../README.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">Spatial Anonymization</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Methodology</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="../docs/anonymization_procedure.html">Spatial Anonymization: Three-Stage Mental Model</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">1. Spatial Anonymization – Usage Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="downloading_geospatial_inputs.html">2. Downloading &amp; Inspecting Geospatial Inputs</a></li>
+</ul>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference external" href="https://www.dhsprogram.com/pubs/pdf/SAR7/SAR7.pdf">DHS Geographic Displacement Procedure (SAR7)</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://unstats.un.org/unsd/statcom/52nd-session/documents/BG-3l-Spatial_Anonymization-E.pdf">UNSD Guidelines on Spatial Anonymization</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/worldbank/DECAT_HH_Geovariables">Survey Geo-enhancement project</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-source-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Source repositories">
+    <i class="fab fa-github"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="https://github.com/worldbank/Spatial-Anonymization" target="_blank"
+   class="btn btn-sm btn-source-repository-button dropdown-item"
+   title="Source repository"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fab fa-github"></i>
+  </span>
+<span class="btn__text-container">Repository</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/worldbank/Spatial-Anonymization/edit/main/notebooks/getting_started.ipynb" target="_blank"
+   class="btn btn-sm btn-source-edit-button dropdown-item"
+   title="Suggest edit"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-pencil-alt"></i>
+  </span>
+<span class="btn__text-container">Suggest edit</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li><a href="https://github.com/worldbank/Spatial-Anonymization/issues/new?title=Issue%20on%20page%20%2Fnotebooks/getting_started.html&body=Your%20issue%20content%20here." target="_blank"
+   class="btn btn-sm btn-source-issues-button dropdown-item"
+   title="Open an issue"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-lightbulb"></i>
+  </span>
+<span class="btn__text-container">Open issue</span>
+</a>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../_sources/notebooks/getting_started.ipynb" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.ipynb</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>Spatial Anonymization – Usage Examples</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spatial-anonymization-overview">1.1. Spatial Anonymization: Overview</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-spatial-anonymization">1.1.1. What Is Spatial Anonymization?</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#anonymization-logic">1.2. Anonymization Logic</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-description">1.3. Dataset Description</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-data-fields">1.3.1. Key Data Fields</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#data-characteristics">1.3.2. Data Characteristics</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#python-setup">1.4. 1. Python Setup <a id="setup"></a></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#working-directory-and-inputs-setup">1.5. 2. Working Directory and Inputs Setup</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example">1.5.1. Example</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#input-data-preparation">1.6. 3. Input Data Preparation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#coordinates">1.6.1. 3.1 Coordinates</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#administrative-boundaries">1.6.2. 3.2 Administrative Boundaries</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#population-data-optional">1.6.3. 3.3 Population Data (Optional)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-spatial-anonymization">1.7. 4. Configuring Spatial Anonymization</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-1-preset-configurations-recommended">1.7.1. Option-1: Preset Configurations (Recommended)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-2-custom-configuration">1.7.2. Option-2. Custom Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-decisions">1.7.3. Key Decisions</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-the-survey-anonymization">1.8. 5. Running the Survey Anonymization</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-happens-internally">1.8.1. What happens internally</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-parameters">1.8.2. Key parameters</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#review-anonymized-results">1.9. 6. Review Anonymized Results</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#handling-failed-displacements">1.9.1. 6.1 Handling failed displacements</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#output-folder-structure">1.9.2. 6.2 Output folder structure</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#output-dataframe">1.9.3. 6.3 Output DataFrame</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#validation-checks">1.9.4. 6.4 Validation Checks</a></li>
+</ul>
+</li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section class="tex2jax_ignore mathjax_ignore" id="spatial-anonymization-usage-examples">
+<h1><span class="section-number">1. </span>Spatial Anonymization – Usage Examples<a class="headerlink" href="#spatial-anonymization-usage-examples" title="Link to this heading">#</a></h1>
+<p>This notebook demonstrates how to use the <strong>spatial anonymization</strong> library to protect survey GPS data while preserving analytical utility.</p>
+<section id="spatial-anonymization-overview">
+<h2><span class="section-number">1.1. </span>Spatial Anonymization: Overview<a class="headerlink" href="#spatial-anonymization-overview" title="Link to this heading">#</a></h2>
+<section id="what-is-spatial-anonymization">
+<h3><span class="section-number">1.1.1. </span>What Is Spatial Anonymization?<a class="headerlink" href="#what-is-spatial-anonymization" title="Link to this heading">#</a></h3>
+<p>Spatial anonymization introduces controlled uncertainty into GPS coordinates to protect respondent privacy while preserving useful geographic patterns.</p>
+<p>This library implements three common approaches:</p>
+<ul class="simple">
+<li><p><strong>DHS-style displacement</strong><br />
+Random displacement within a fixed maximum distance (optionally urban/rural-specific)</p></li>
+<li><p><strong>Donut geomasking</strong><br />
+Enforces a minimum displacement distance to reduce re-identification risk</p></li>
+<li><p><strong>Population-adaptive displacement</strong><br />
+Adjusts the displacement radius to ensure a minimum surrounding population</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="anonymization-logic">
+<h2><span class="section-number">1.2. </span>Anonymization Logic<a class="headerlink" href="#anonymization-logic" title="Link to this heading">#</a></h2>
+<p>The anonymization process separates privacy policy, geometry, and validation:</p>
+<ol class="arabic simple">
+<li><p><strong>Radius Selection (Privacy Envelope)</strong><br />
+Defines the uncertainty range (fixed, donut, or population-based)</p></li>
+<li><p><strong>Point Displacement (Geometry)</strong><br />
+Generates a candidate point using a random direction and distance</p></li>
+<li><p><strong>Constraint Evaluation (Validity)</strong><br />
+Ensures the point satisfies spatial rules (e.g., boundaries, water exclusion)</p></li>
+</ol>
+<p>Population defines the anonymization envelope, while constraints determine validity—ensuring predictable runtime, avoiding infinite retries, and enabling modular testing.</p>
+</section>
+<hr class="docutils" />
+<section id="dataset-description">
+<h2><span class="section-number">1.3. </span>Dataset Description<a class="headerlink" href="#dataset-description" title="Link to this heading">#</a></h2>
+<p>This notebook uses household survey data from <strong>Malawi</strong> for demonstration purposes, including GPS coordinates and associated metadata.</p>
+<ul class="simple">
+<li><p><strong>Source:</strong> Malawi Household Survey</p></li>
+<li><p><strong>Coverage:</strong> Multiple districts</p></li>
+<li><p><strong>Unit:</strong> Households within enumeration areas (EAs)</p></li>
+</ul>
+<section id="key-data-fields">
+<h3><span class="section-number">1.3.1. </span>Key Data Fields<a class="headerlink" href="#key-data-fields" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Identifiers &amp; geography:</strong> <code class="docutils literal notranslate"><span class="pre">HHID</span></code>, <code class="docutils literal notranslate"><span class="pre">ea_id</span></code>, <code class="docutils literal notranslate"><span class="pre">ea_code</span></code>, <code class="docutils literal notranslate"><span class="pre">district</span></code></p></li>
+<li><p><strong>Survey metadata:</strong> <code class="docutils literal notranslate"><span class="pre">interviewDate</span></code>, <code class="docutils literal notranslate"><span class="pre">reside</span></code>, <code class="docutils literal notranslate"><span class="pre">camp</span></code>, <code class="docutils literal notranslate"><span class="pre">hh_a02a</span></code>, <code class="docutils literal notranslate"><span class="pre">hh_a02b</span></code></p></li>
+<li><p><strong>GPS (Garmin – primary):</strong> <code class="docutils literal notranslate"><span class="pre">latitude_garmin</span></code>, <code class="docutils literal notranslate"><span class="pre">longitude_garmin</span></code></p></li>
+<li><p><strong>GPS (Tablet – supplementary):</strong> coordinates, accuracy, altitude, timestamp, weather, satellites</p></li>
+</ul>
+</section>
+<section id="data-characteristics">
+<h3><span class="section-number">1.3.2. </span>Data Characteristics<a class="headerlink" href="#data-characteristics" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Quality metrics support reliability checks</p></li>
+<li><p>Urban/rural classification enables differentiated policies</p></li>
+</ul>
+</section>
+</section>
+<section id="python-setup">
+<h2><span class="section-number">1.4. </span>1. Python Setup <a id='setup'></a><a class="headerlink" href="#python-setup" title="Link to this heading">#</a></h2>
+<ol class="arabic simple">
+<li><p>Ensure that you have the package installed by following instructions provided on the GitHub project documentation.</p></li>
+<li><p>Import required libraries</p></li>
+</ol>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">%</span><span class="k">load_ext</span> autoreload
+<span class="o">%</span><span class="k">autoreload</span> 2
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">spatial_anonymization.api</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">anonymize_survey_coordinates</span><span class="p">,</span> 
+    <span class="n">validate_input_schema</span>
+    <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spatial_anonymization.diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="n">diagnostics</span><span class="p">,</span> <span class="n">visualization</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">spatial_anonymization.diagnostics.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_displacement_comparison</span>
+
+<span class="c1"># Import configuration presets from config_presets module</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">spatial_anonymization.config.presets</span><span class="w"> </span><span class="kn">import</span> <span class="n">DHS</span><span class="p">,</span> <span class="n">print_preset</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="working-directory-and-inputs-setup">
+<h2><span class="section-number">1.5. </span>2. Working Directory and Inputs Setup<a class="headerlink" href="#working-directory-and-inputs-setup" title="Link to this heading">#</a></h2>
+<p>Define global path variables for your working directory and data folders. These paths are used to:</p>
+<ul class="simple">
+<li><p>load input datasets (e.g. survey coordinates, boundaries)</p></li>
+<li><p>store downloaded resources (e.g. population rasters)</p></li>
+<li><p>save outputs and diagnostics</p></li>
+</ul>
+<p>Centralizing paths improves clarity, portability, and reproducibility.<br />
+Use a consistent naming convention: directories (<code class="docutils literal notranslate"><span class="pre">DIR_*</span></code>) and files (<code class="docutils literal notranslate"><span class="pre">FILE_*</span></code>).</p>
+<section id="example">
+<h3><span class="section-number">1.5.1. </span>Example<a class="headerlink" href="#example" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="c1"># Base directory</span>
+<span class="n">DIR_WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"/path/to/your/project"</span><span class="p">)</span>
+
+<span class="c1"># Data directories</span>
+<span class="n">DIR_DATA</span> <span class="o">=</span> <span class="n">DIR_WORK</span> <span class="o">/</span> <span class="s2">"data"</span>
+<span class="n">FILE_MWI_COORDS</span> <span class="o">=</span> <span class="n">DIR_WORK</span> <span class="o">/</span> <span class="s2">"data/mwi/ihs_coords.dta"</span>
+</pre></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># ======================================</span>
+<span class="c1"># SETUP INPUT PATHS CONSTANTS</span>
+<span class="c1"># ======================================</span>
+<span class="c1"># Base working directory</span>
+<span class="n">DIR_WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"/Users/dmatekenya/Library/CloudStorage/OneDrive-WBG/Survey-Geo-Enhancement/git-repos/spatial-anonymization/"</span><span class="p">)</span>
+
+<span class="c1"># Input data directories</span>
+<span class="n">DIR_DATA</span> <span class="o">=</span> <span class="n">DIR_WORK</span> <span class="o">/</span> <span class="s2">"data"</span>
+
+<span class="c1"># ========================</span>
+<span class="c1"># INPUT FILES FOR MALAWI</span>
+<span class="c1"># ========================</span>
+<span class="c1"># MW working directory</span>
+<span class="n">DIR_MWI</span> <span class="o">=</span> <span class="n">DIR_DATA</span> <span class="o">/</span> <span class="s2">"mwi"</span>
+<span class="n">DIR_MWI_GEOSPATIAL</span> <span class="o">=</span> <span class="n">DIR_MWI</span> <span class="o">/</span> <span class="s2">"geospatial"</span>
+
+<span class="c1"># Survey coordinates file</span>
+<span class="n">FILE_MWI_IHS6</span> <span class="o">=</span> <span class="n">DIR_MWI</span> <span class="o">/</span> <span class="s2">"test-coords.csv"</span>
+
+
+<span class="c1"># MWI adm3 shapefile</span>
+<span class="n">FILE_MWI_ADM3</span> <span class="o">=</span> <span class="n">DIR_MWI_GEOSPATIAL</span> <span class="o">/</span> <span class="s2">"adm4-wgs84.shp"</span>
+
+<span class="c1"># Pre-downloaded population raster file</span>
+<span class="n">FILE_MWI_POPULATION_RASTER</span> <span class="o">=</span> <span class="n">DIR_MWI_GEOSPATIAL</span> <span class="o">/</span> <span class="s2">"mwi_worldpop_2025.tif"</span>
+
+<span class="c1"># Pre-downloaded water bodies shapefile (from OSM)</span>
+<span class="n">FILE_MWI_WATER_BODIES</span> <span class="o">=</span> <span class="n">DIR_MWI_GEOSPATIAL</span> <span class="o">/</span> <span class="s2">"MWI_water_bodies_osm.shp"</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="input-data-preparation">
+<h2><span class="section-number">1.6. </span>3. Input Data Preparation<a class="headerlink" href="#input-data-preparation" title="Link to this heading">#</a></h2>
+<p>Before running anonymization, users must prepare both coordinate data and any required geospatial inputs.</p>
+<section id="coordinates">
+<h3><span class="section-number">1.6.1. </span>3.1 Coordinates<a class="headerlink" href="#coordinates" title="Link to this heading">#</a></h3>
+<p>Ensure that the input dataset is cleaned and correctly structured:</p>
+<ul class="simple">
+<li><p>Longitude and latitude in decimal degrees (WGS84)</p></li>
+<li><p>Numeric values with no missing entries</p></li>
+</ul>
+<p>Specify:</p>
+<ul class="simple">
+<li><p>longitude and latitude column names</p></li>
+<li><p>urban/rural classification (if available)</p></li>
+<li><p>labels for urban and rural areas</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="administrative-boundaries">
+<h3><span class="section-number">1.6.2. </span>3.2 Administrative Boundaries<a class="headerlink" href="#administrative-boundaries" title="Link to this heading">#</a></h3>
+<p>Administrative boundaries are used to constrain displacement.</p>
+<p>Users can:</p>
+<ul class="simple">
+<li><p>provide their own boundary data (e.g. shapefile or GeoJSON), or</p></li>
+<li><p>allow the package to download boundaries automatically</p></li>
+</ul>
+<p>If downloading, users must specify:</p>
+<ul class="simple">
+<li><p><strong>country ISO code</strong> (e.g. <code class="docutils literal notranslate"><span class="pre">MWI</span></code>)</p></li>
+<li><p><strong>administrative level</strong> (e.g. adm0–adm3)</p></li>
+</ul>
+<p>By default, the package attempts to download from:</p>
+<ul class="simple">
+<li><p><strong><a class="reference external" href="https://www.geoboundaries.org">geoBoundaries</a></strong></p></li>
+<li><p>fallback to <strong><a class="reference external" href="https://gadm.org/data.html">GADM</a></strong></p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="population-data-optional">
+<h3><span class="section-number">1.6.3. </span>3.3 Population Data (Optional)<a class="headerlink" href="#population-data-optional" title="Link to this heading">#</a></h3>
+<p>Population data is required only for population-based anonymization methods.</p>
+<p>Users can:</p>
+<ul class="simple">
+<li><p>provide their own population raster, or</p></li>
+<li><p>allow the package to download one automatically</p></li>
+</ul>
+<p>By default, the package uses:</p>
+<ul class="simple">
+<li><p><strong><a class="reference external" href="https://hub.worldpop.org/geodata/listing?id=135">WorldPop (100m resolution, R2025A v1)</a></strong></p></li>
+</ul>
+<hr class="docutils" />
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># ============================================================</span>
+<span class="c1"># SPECIFY INPUT DATA SCHEMA</span>
+<span class="c1"># ============================================================</span>
+<span class="n">LAT</span> <span class="o">=</span> <span class="s2">"latitude_tablet"</span>
+<span class="n">LON</span> <span class="o">=</span> <span class="s2">"longitude_tablet"</span>
+<span class="n">URBAN_RURAL_COL</span> <span class="o">=</span> <span class="s2">"urb_rur"</span>
+<span class="n">URBAN_VALUE</span> <span class="o">=</span> <span class="s2">"URBAN"</span>
+<span class="n">RURAL_VALUE</span> <span class="o">=</span> <span class="s2">"RURAL"</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># ======================================</span>
+<span class="c1"># VALIDATE INPUT DATA</span>
+<span class="c1"># =======================================</span>
+<span class="c1"># Load the data</span>
+<span class="n">df_mwi_ihs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">FILE_MWI_IHS6</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"       Coordinates Data Preview"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">df_mwi_ihs</span><span class="p">[[</span><span class="n">LAT</span><span class="p">,</span> <span class="n">LON</span><span class="p">,</span> <span class="n">URBAN_RURAL_COL</span><span class="p">]]</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"-"</span> <span class="o">*</span> <span class="mi">50</span> <span class="p">)</span>
+<span class="c1"># Check the data</span>
+<span class="nb">print</span><span class="p">()</span>
+<span class="n">validate_input_schema</span><span class="p">(</span><span class="n">df_mwi_ihs</span><span class="p">,</span> <span class="n">lat_col</span><span class="o">=</span><span class="n">LAT</span><span class="p">,</span> <span class="n">lon_col</span><span class="o">=</span><span class="n">LON</span><span class="p">,</span>
+                      <span class="n">urban_rural_col</span><span class="o">=</span><span class="n">URBAN_RURAL_COL</span><span class="p">,</span> <span class="n">urban_value</span><span class="o">=</span><span class="n">URBAN_VALUE</span><span class="p">,</span>
+                      <span class="n">rural_value</span><span class="o">=</span><span class="n">RURAL_VALUE</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>==================================================
+       Coordinates Data Preview
+==================================================
+   latitude_tablet  longitude_tablet urb_rur
+0       -13.794762         32.893220   RURAL
+1       -13.139925         33.797322   RURAL
+2        -9.702232         33.274363   RURAL
+3       -13.350432         33.904573   RURAL
+4       -15.838955         34.394940   RURAL
+--------------------------------------------------
+
+All Input Data Schema Validations Passed!
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># ======================================</span>
+<span class="c1"># Geospatial Input Layers </span>
+<span class="c1"># =======================================</span>
+<span class="c1"># Admin boundaries file defined in Working Directory and Inputs Setup</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Admin boundaries file: </span><span class="si">{</span><span class="n">FILE_MWI_ADM3</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Population raster file defined in Working Directory and Inputs Setup</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Population raster file: </span><span class="si">{</span><span class="n">FILE_MWI_POPULATION_RASTER</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>Admin boundaries file: /Users/dmatekenya/Library/CloudStorage/OneDrive-WBG/Survey-Geo-Enhancement/git-repos/spatial-anonymization/data/mwi/geospatial/adm4-wgs84.shp
+Population raster file: /Users/dmatekenya/Library/CloudStorage/OneDrive-WBG/Survey-Geo-Enhancement/git-repos/spatial-anonymization/data/mwi/geospatial/mwi_worldpop_2025.tif
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="configuring-spatial-anonymization">
+<h2><span class="section-number">1.7. </span>4. Configuring Spatial Anonymization<a class="headerlink" href="#configuring-spatial-anonymization" title="Link to this heading">#</a></h2>
+<p>Before running anonymization, users need to make a few key decisions about how privacy should be enforced. These choices determine the displacement method, distance rules, and any spatial constraints.</p>
+<p>The package supports two approaches:</p>
+<section id="option-1-preset-configurations-recommended">
+<h3><span class="section-number">1.7.1. </span>Option-1: Preset Configurations (Recommended)<a class="headerlink" href="#option-1-preset-configurations-recommended" title="Link to this heading">#</a></h3>
+<p>Use predefined configurations for common methods such as DHS-style displacement.<br />
+These presets reflect standard practices and require minimal setup, with optional overrides.</p>
+</section>
+<section id="option-2-custom-configuration">
+<h3><span class="section-number">1.7.2. </span>Option-2. Custom Configuration<a class="headerlink" href="#option-2-custom-configuration" title="Link to this heading">#</a></h3>
+<p>Define parameters manually for full control over:</p>
+<ul class="simple">
+<li><p>displacement method and distance thresholds</p></li>
+<li><p>urban/rural rules</p></li>
+<li><p>population thresholds</p></li>
+<li><p>spatial constraints</p></li>
+</ul>
+</section>
+<section id="key-decisions">
+<h3><span class="section-number">1.7.3. </span>Key Decisions<a class="headerlink" href="#key-decisions" title="Link to this heading">#</a></h3>
+<p>At a minimum, decide:</p>
+<ul class="simple">
+<li><p>which anonymization method to use</p></li>
+<li><p>whether to differentiate urban and rural areas</p></li>
+<li><p>whether to apply population thresholds</p></li>
+<li><p>which constraints to enforce (e.g., administrative boundaries)</p></li>
+</ul>
+<blockquote>
+<div><p><strong>In this notebook, we begin with a vanilla DHS configuration</strong>, which includes:</p>
+<ul class="simple">
+<li><p>urban displacement up to 2 km</p></li>
+<li><p>rural displacement up to 5 km, with ~10% of points up to 10 km</p></li>
+<li><p>enforcement of administrative boundaries as the only spatial constraint</p></li>
+</ul>
+<p>For administrative constraints, users must choose the appropriate boundary level.<br />
+In Malawi, administrative levels range from <strong>adm0 (country)</strong> to <strong>adm3 (traditional authority)</strong>, with enumeration areas being more granular.<br />
+In this example, displacement is constrained within <strong>adm3 boundaries</strong>.</p>
+</div></blockquote>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># ======================================</span>
+<span class="c1"># SPATIAL ANONYMIZATION CONFIGS </span>
+<span class="c1"># =======================================</span>
+<span class="c1"># We will use the DHS preset configuration for this example, </span>
+<span class="c1"># which is suitable for survey data with urban/rural classification. The DHS preset includes parameters such as maximum displacement distances for urban and rural areas, and the number of random points to generate for each cluster.</span>
+<span class="n">METHOD</span> <span class="o">=</span> <span class="s2">"dhs"</span>
+
+<span class="c1"># Review the parameters for the DHS preset</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"DHS Preset Parameters:"</span><span class="p">)</span>
+<span class="n">print_preset</span><span class="p">(</span><span class="n">DHS</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>DHS Preset Parameters:
+
+======================================================================
+                        DHS Preset Parameters                         
+======================================================================
+
+  method: dhs
+      Anonymization method to use. 'dhs' applies DHS-style random
+      displacement, 'donut' enforces a minimum displacement distance,
+      and 'population_adaptive' selects displacement distance based on
+      a minimum population threshold.
+
+  max_distance: 5,000
+      Fallback maximum displacement distance (in meters) used when no
+      urban/rural classification is available.
+
+  urban_max_distance: 2,000
+      Maximum displacement distance (in meters) applied to urban
+      locations when urban/rural classification is provided.
+
+  rural_max_distance: 5,000
+      Maximum displacement distance (in meters) applied to rural
+      locations when urban/rural classification is provided.
+
+  rural_extra_max_distance: 10,000
+      Larger maximum displacement distance (in meters) applied to a
+      subset of rural locations to reduce re-identification risk
+      (DHS-style rural oversampling).
+
+  rural_extra_proportion: 0.1
+      Proportion of rural locations that should receive the larger
+      displacement distance defined by rural_extra_max_distance. Set
+      to 0 to disable rural oversampling.
+
+  min_distance: 0
+      Minimum displacement distance (in meters) used as a fallback
+      when urban- or rural-specific minimum distances are not
+      provided. Primarily relevant for donut geomasking.
+
+  displaced_pop_radius_m: 1,000
+      Buffer radius (in meters) around each displaced point used to
+      extract population count from the raster. Set to 0 to skip
+      post-displacement population extraction.
+
+  enforce_admin_boundary: Yes
+      Whether anonymized coordinates must remain within the specified
+      administrative boundary.
+
+  enforce_water_constraint: No
+      Whether anonymized coordinates should avoid falling within major
+      water bodies when such data are available.
+
+======================================================================
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="running-the-survey-anonymization">
+<h2><span class="section-number">1.8. </span>5. Running the Survey Anonymization<a class="headerlink" href="#running-the-survey-anonymization" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">anonymize_survey_coordinates()</span></code> function is the main entry point for displacing GPS coordinates. It accepts the input DataFrame, coordinate column names, and the configuration parameters defined above.</p>
+<section id="what-happens-internally">
+<h3><span class="section-number">1.8.1. </span>What happens internally<a class="headerlink" href="#what-happens-internally" title="Link to this heading">#</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Configuration resolution</strong> — If no <code class="docutils literal notranslate"><span class="pre">config</span></code> object is passed, the function loads the preset matching the chosen <code class="docutils literal notranslate"><span class="pre">method</span></code> (e.g. DHS) and applies any parameter overrides.</p></li>
+<li><p><strong>Input preparation</strong> — Administrative boundaries (and optionally population rasters and water bodies) are loaded or auto-downloaded using the <code class="docutils literal notranslate"><span class="pre">country_iso3</span></code> code.</p></li>
+<li><p><strong>Boundary filtering</strong> — Points that fall outside the provided admin boundaries are flagged and removed before displacement.</p></li>
+<li><p><strong>Displacement</strong> — Each point is randomly displaced within its assigned radius. Candidate locations are validated against spatial constraints (e.g. must remain inside the same admin unit). If a candidate fails, the algorithm retries up to <code class="docutils literal notranslate"><span class="pre">max_attempts</span></code> times.</p></li>
+<li><p><strong>Output</strong> — The function returns the input DataFrame augmented with anonymized coordinate columns (<code class="docutils literal notranslate"><span class="pre">lon_anon</span></code>, <code class="docutils literal notranslate"><span class="pre">lat_anon</span></code>) and metadata (<code class="docutils literal notranslate"><span class="pre">distance_km</span></code>, <code class="docutils literal notranslate"><span class="pre">attempts</span></code>, <code class="docutils literal notranslate"><span class="pre">max_radius_assigned</span></code>). A CSV and GeoJSON of the results are saved to <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>.</p></li>
+</ol>
+</section>
+<section id="key-parameters">
+<h3><span class="section-number">1.8.2. </span>Key parameters<a class="headerlink" href="#key-parameters" title="Link to this heading">#</a></h3>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">method</span></code></p></td>
+<td><p>Anonymization method (<code class="docutils literal notranslate"><span class="pre">&quot;dhs&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;donut&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;population_adaptive&quot;</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">admin_boundaries</span></code></p></td>
+<td><p>Shapefile or GeoDataFrame for boundary constraints</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">output_dir</span></code></p></td>
+<td><p>Directory where output CSV and GeoJSON are saved</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">n_workers</span></code></p></td>
+<td><p>Number of parallel processes (set to <code class="docutils literal notranslate"><span class="pre">1</span></code> for reproducibility)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_attempts</span></code></p></td>
+<td><p>Retry limit per point before marking as failed</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">extract_displaced_population</span></code></p></td>
+<td><p>Whether to query population raster at displaced locations</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># ======================================</span>
+<span class="c1"># ANONYMIZE THE DATA</span>
+<span class="c1"># =======================================</span>
+<span class="n">df_anonymized</span> <span class="o">=</span> <span class="n">anonymize_survey_coordinates</span><span class="p">(</span>
+    <span class="n">df</span><span class="o">=</span><span class="n">df_mwi_ihs</span><span class="p">,</span>
+    <span class="n">lon_col</span><span class="o">=</span><span class="n">LON</span><span class="p">,</span>
+    <span class="n">lat_col</span><span class="o">=</span><span class="n">LAT</span><span class="p">,</span>
+    <span class="n">urban_rural_col</span><span class="o">=</span><span class="n">URBAN_RURAL_COL</span><span class="p">,</span>
+    <span class="n">urban_value</span><span class="o">=</span><span class="n">URBAN_VALUE</span><span class="p">,</span>
+    <span class="n">rural_value</span><span class="o">=</span><span class="n">RURAL_VALUE</span><span class="p">,</span>
+    <span class="n">method</span><span class="o">=</span><span class="n">METHOD</span><span class="p">,</span>
+    <span class="n">country_iso3</span><span class="o">=</span><span class="s2">"MWI"</span><span class="p">,</span>
+    <span class="n">output_dir</span><span class="o">=</span><span class="n">DIR_MWI</span> <span class="o">/</span> <span class="s2">"ihs6-2024-25"</span><span class="p">,</span>
+    <span class="n">admin_boundaries</span><span class="o">=</span><span class="n">FILE_MWI_ADM3</span><span class="p">,</span>
+    <span class="n">water_boundaries</span><span class="o">=</span><span class="n">FILE_MWI_WATER_BODIES</span><span class="p">,</span>
+    <span class="n">population_raster</span><span class="o">=</span><span class="n">FILE_MWI_POPULATION_RASTER</span><span class="p">,</span>
+    <span class="n">n_workers</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+    <span class="n">admin_level</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+    <span class="n">max_attempts</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span>
+    <span class="n">extract_displaced_population</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">relax_admin_constraint_on_failure</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>╔═════════════════════════════════════════════════════════════════════════╗
+║                       ANONYMIZATION CONFIGURATION                       ║
+╠═════════════════════════════════════════════════════════════════════════╣
+║  Preset: dhs  (+4 overrides)                                            ║
+╠═════════════════════════════════════════════════════════════════════════╣
+║  DISPLACEMENT METHOD                                                    ║
+║   method                   dhs          Random displacement within max radius║
+╠═════════════════════════════════════════════════════════════════════════╣
+║  DISTANCE THRESHOLDS                                                    ║
+║   urban_max_distance       2000 m       Max displacement for urban points║
+║   rural_max_distance       5000 m       Max displacement for rural points║
+║   rural_extra_max          10000 m      Extended rural displacement     ║
+║   rural_extra_prop         10.0%        Fraction of rural points extended║
+║   min_distance             0.0 m        Min displacement (donut masking)║
+║   urban_min_distance       None m       Min displacement for urban (donut)║
+║   rural_min_distance       None m       Min displacement for rural (donut)║
+║   max_distance             5000 m       Fallback when urban/rural unknown║
+║   diff_urban_rural         ON           Using column 'urb_rur'          ║
+╠═════════════════════════════════════════════════════════════════════════╣
+║  SPATIAL CONSTRAINTS                                                    ║
+║   admin_level              3            Administrative boundary level   ║
+║   enforce_admin            True         Keep points inside admin unit   ║
+╚═════════════════════════════════════════════════════════════════════════╝
+[Inputs] admin=yes, population=yes, water=yes, utm_epsg=32736
+# ===============================================
+# RUN: 2026-04-05 18:44:29
+# ===============================================
+[Log] 2026-04-05 18:44:29 | BOUNDARY_FILTER | 13 of 5000 points dropped (outside boundary) | Saved to /Users/dmatekenya/Library/CloudStorage/OneDrive-WBG/Survey-Geo-Enhancement/git-repos/spatial-anonymization/data/mwi/ihs6-2024-25/anonymization_outputs/intermediate_data/dropped_outside_boundary.csv and /Users/dmatekenya/Library/CloudStorage/OneDrive-WBG/Survey-Geo-Enhancement/git-repos/spatial-anonymization/data/mwi/ihs6-2024-25/anonymization_outputs/intermediate_data/dropped_outside_boundary.geojson
+[Log] 2026-04-05 18:44:29 | CONFIG | Saved parameters to /Users/dmatekenya/Library/CloudStorage/OneDrive-WBG/Survey-Geo-Enhancement/git-repos/spatial-anonymization/data/mwi/ihs6-2024-25/anonymization_outputs/processing_logs/params.yaml
+[Anonymization] Starting for 4987 rows...
+[Anonymizer] Admin join: 4987/4987 points matched to admin unit
+[Anonymizer] Displacing 4987 points
+[Anonymizer] Urban/rural split: 0 urban, 0 rural
+[Anonymizer] Effective max distances: urban=2000m, rural=5000m
+[Anonymizer] Using 12 worker processes
+[Anonymizer] Processed 100/4987 points
+[Anonymizer] Processed 200/4987 points
+[Anonymizer] Processed 300/4987 points
+[Anonymizer] Processed 400/4987 points
+[Anonymizer] Processed 500/4987 points
+[Anonymizer] Processed 600/4987 points
+[Anonymizer] Processed 700/4987 points
+[Anonymizer] Processed 800/4987 points
+[Anonymizer] Processed 900/4987 points
+[Anonymizer] Processed 1000/4987 points
+[Anonymizer] Processed 1100/4987 points
+[Anonymizer] Processed 1200/4987 points
+[Anonymizer] Processed 1300/4987 points
+[Anonymizer] Processed 1400/4987 points
+[Anonymizer] Processed 1500/4987 points
+[Anonymizer] Processed 1600/4987 points
+[Anonymizer] Processed 1700/4987 points
+[Anonymizer] Processed 1800/4987 points
+[Anonymizer] Processed 1900/4987 points
+[Anonymizer] Processed 2000/4987 points
+[Anonymizer] Processed 2100/4987 points
+[Anonymizer] Processed 2200/4987 points
+[Anonymizer] Processed 2300/4987 points
+[Anonymizer] Processed 2400/4987 points
+[Anonymizer] Processed 2500/4987 points
+[Anonymizer] Processed 2600/4987 points
+[Anonymizer] Processed 2700/4987 points
+[Anonymizer] Processed 2800/4987 points
+[Anonymizer] Processed 2900/4987 points
+[Anonymizer] Processed 3000/4987 points
+[Anonymizer] Processed 3100/4987 points
+[Anonymizer] Processed 3200/4987 points
+[Anonymizer] Processed 3300/4987 points
+[Anonymizer] Processed 3400/4987 points
+[Anonymizer] Processed 3500/4987 points
+[Anonymizer] Processed 3600/4987 points
+[Anonymizer] Processed 3700/4987 points
+[Anonymizer] Processed 3800/4987 points
+[Anonymizer] Processed 3900/4987 points
+[Anonymizer] Processed 4000/4987 points
+[Anonymizer] Processed 4100/4987 points
+[Anonymizer] Processed 4200/4987 points
+[Anonymizer] Processed 4300/4987 points
+[Anonymizer] Processed 4400/4987 points
+[Anonymizer] Processed 4500/4987 points
+[Anonymizer] Processed 4600/4987 points
+[Anonymizer] Processed 4700/4987 points
+[Anonymizer] Processed 4800/4987 points
+[Anonymizer] Processed 4900/4987 points
+[Anonymizer] Processed 4987/4987 points
+[Anonymizer] Done. 4987 succeeded, 0 failed.
+[Anonymizer] Extracting population within 1000m of displaced points...
+[Anonymizer] Population (pop_within_1000m): mean=4152, min=0, max=84444
+[Log] 2026-04-05 18:44:34 | DISPLACEMENT | All 4987 points displaced successfully
+[Log] 2026-04-05 18:44:34 | OUTPUT | Saved anonymized data to /Users/dmatekenya/Library/CloudStorage/OneDrive-WBG/Survey-Geo-Enhancement/git-repos/spatial-anonymization/data/mwi/ihs6-2024-25/anonymization_outputs/output_data/anonymized.csv and /Users/dmatekenya/Library/CloudStorage/OneDrive-WBG/Survey-Geo-Enhancement/git-repos/spatial-anonymization/data/mwi/ihs6-2024-25/anonymization_outputs/output_data/anonymized.geojson
+# ----------- RUN SUMMARY -----------
+# Input GPS coordinates:              5000
+# Dropped (outside boundary):         13
+# Failed displacement:                0
+# Successfully anonymized:            4987
+# -----------------------------------
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="review-anonymized-results">
+<h2><span class="section-number">1.9. </span>6. Review Anonymized Results<a class="headerlink" href="#review-anonymized-results" title="Link to this heading">#</a></h2>
+<p>After anonymization, review outputs to verify quality and completeness.</p>
+<section id="handling-failed-displacements">
+<h3><span class="section-number">1.9.1. </span>6.1 Handling failed displacements<a class="headerlink" href="#handling-failed-displacements" title="Link to this heading">#</a></h3>
+<p>Points near tight boundaries may fail to find a valid location. Recommended workflow:</p>
+<ol class="arabic simple">
+<li><p>Start with <code class="docutils literal notranslate"><span class="pre">relax_admin_constraint_on_failure=False</span></code> (default) and assess failures</p></li>
+<li><p>Increase <code class="docutils literal notranslate"><span class="pre">max_attempts</span></code> (e.g. 100–300)</p></li>
+<li><p>If failures persist, set <code class="docutils literal notranslate"><span class="pre">relax_admin_constraint_on_failure=True</span></code></p>
+<ul class="simple">
+<li><p>such points are flagged as <code class="docutils literal notranslate"><span class="pre">relaxed_admin=True</span></code></p></li>
+</ul>
+</li>
+</ol>
+</section>
+<hr class="docutils" />
+<section id="output-folder-structure">
+<h3><span class="section-number">1.9.2. </span>6.2 Output folder structure<a class="headerlink" href="#output-folder-structure" title="Link to this heading">#</a></h3>
+<p>Outputs are saved under <code class="docutils literal notranslate"><span class="pre">output_dir/anonymization_outputs/</span></code>:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Folder</p></th>
+<th class="head"><p>Contents</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">processing_logs/</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">params.yaml</span></code> (config snapshot), <code class="docutils literal notranslate"><span class="pre">processing_log.txt</span></code> (run summary)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">intermediate_data/</span></code></p></td>
+<td><p>dropped and failed points</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">output_data/</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">anonymized.csv</span></code>, <code class="docutils literal notranslate"><span class="pre">anonymized.geojson</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="output-dataframe">
+<h3><span class="section-number">1.9.3. </span>6.3 Output DataFrame<a class="headerlink" href="#output-dataframe" title="Link to this heading">#</a></h3>
+<p>The returned DataFrame includes:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>Column</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lon_anon</span></code>, <code class="docutils literal notranslate"><span class="pre">lat_anon</span></code></p></td>
+<td><p>Displaced coordinates</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">distance_km</span></code></p></td>
+<td><p>Displacement distance</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">attempts</span></code></p></td>
+<td><p>Number of retries</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">max_radius_assigned</span></code></p></td>
+<td><p>Assigned max radius (DHS rule)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">relaxed_admin</span></code></p></td>
+<td><p>Displaced outside admin constraint (if enabled)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">constraining_admin</span></code></p></td>
+<td><p>Admin level used</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pop_within_&lt;r&gt;m</span></code></p></td>
+<td><p>Population within radius (if enabled)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="validation-checks">
+<h3><span class="section-number">1.9.4. </span>6.4 Validation Checks<a class="headerlink" href="#validation-checks" title="Link to this heading">#</a></h3>
+<p>Review outputs using the following checks:</p>
+<ul class="simple">
+<li><p><strong>Dropped / failed points</strong></p>
+<ul>
+<li><p>dropped (outside boundaries) and failed points are saved in <code class="docutils literal notranslate"><span class="pre">intermediate_data/</span></code></p></li>
+<li><p>compare input vs output row counts</p></li>
+</ul>
+</li>
+<li><p><strong>Displacement statistics</strong></p>
+<ul>
+<li><p>verify distances fall within expected ranges (e.g. DHS limits)</p></li>
+<li><p>summarize by urban/rural where applicable</p></li>
+</ul>
+</li>
+<li><p><strong>Spatial validation</strong></p>
+<ul>
+<li><p>plot original vs displaced points</p></li>
+<li><p>confirm points remain within intended boundaries</p></li>
+</ul>
+</li>
+<li><p><strong>Output files</strong></p>
+<ul>
+<li><p>verify <code class="docutils literal notranslate"><span class="pre">anonymized.csv</span></code> and <code class="docutils literal notranslate"><span class="pre">anonymized.geojson</span></code> exist and match expected counts</p></li>
+</ul>
+</li>
+</ul>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># ===================================================================</span>
+<span class="c1"># DIAGNOSTICS: CHECK ANONYMIZED POINTS FALL WITHIN ADMIN BOUNDARIES</span>
+<span class="c1"># ===================================================================</span>
+<span class="n">gdf_adm4</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="n">FILE_MWI_ADM3</span><span class="p">)</span>
+<span class="n">admin_check</span> <span class="o">=</span> <span class="n">diagnostics</span><span class="o">.</span><span class="n">admin_boundary_check</span><span class="p">(</span><span class="n">df_anonymized</span><span class="p">,</span> <span class="n">lon_col</span><span class="o">=</span><span class="n">LON</span><span class="p">,</span> <span class="n">lat_col</span><span class="o">=</span><span class="n">LAT</span><span class="p">,</span> <span class="n">admin_gdf</span><span class="o">=</span><span class="n">gdf_adm4</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[Admin Check] 4987/4987 displaced points stayed in same admin unit, 0 escaped (0.0%)
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># ============================================</span>
+<span class="c1"># DIAGNOSTICS: DISPLACEMENT STATISTICS</span>
+<span class="c1"># ============================================</span>
+<span class="n">displacement_stats</span> <span class="o">=</span> <span class="n">diagnostics</span><span class="o">.</span><span class="n">displacement_statistics</span><span class="p">(</span>
+    <span class="n">df</span><span class="o">=</span><span class="n">df_anonymized</span><span class="p">,</span>
+    <span class="n">lon_col</span><span class="o">=</span><span class="n">LON</span><span class="p">,</span>
+    <span class="n">lat_col</span><span class="o">=</span><span class="n">LAT</span><span class="p">,</span>
+    <span class="n">urban_col</span><span class="o">=</span><span class="n">URBAN_RURAL_COL</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>=====================================================
+ Distance Stats: Original vs. Displaced Coordinates
+=====================================================
+
+--- all ---
+  Stat    Distance (Km)
+  ------  -------------
+  count       4987.0000
+  mean           2.8799
+  median         2.8089
+  min            0.0123
+  max            9.9675
+  p90            4.7308
+  p95            4.9553
+  p99            8.6670
+
+--- RURAL ---
+  Stat                 Distance (Km)
+  -------------------  -------------
+  count                    4140.0000
+  mean                        3.2468
+  median                      3.2522
+  min                         0.0770
+  max                         9.9675
+  p90                         4.8157
+  p95                         5.1680
+  p99                         8.7834
+  check_max&lt;=10km             1.0000
+  share_&gt;5km                  0.0524
+  share_&gt;10km                 0.0000
+  expected_share_&gt;5km         0.0100
+
+--- URBAN ---
+  Stat            Distance (Km)
+  --------------  -------------
+  count                847.0000
+  mean                   1.0866
+  median                 1.0900
+  min                    0.0123
+  max                    1.9951
+  p90                    1.7809
+  p95                    1.8864
+  p99                    1.9769
+  check_max&lt;=2km         1.0000
+  share_&gt;2km             0.0000
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># ============================================</span>
+<span class="c1"># VISUALIZE THE DISPLACEMENTS ON A MAP</span>
+<span class="c1"># ============================================</span>
+
+<span class="c1"># Load the admin boundaries for visualization</span>
+<span class="n">gdf_adm3</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="n">FILE_MWI_ADM3</span><span class="p">)</span>
+
+<span class="c1"># </span>
+<span class="n">plot_displacement_comparison</span><span class="p">(</span>
+    <span class="n">df</span><span class="o">=</span><span class="n">df_anonymized</span><span class="p">,</span>
+    <span class="n">admin_gdf</span><span class="o">=</span><span class="n">gdf_adm3</span><span class="p">,</span>
+    <span class="n">n_buffers</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+    <span class="n">lon_col</span><span class="o">=</span><span class="n">LON</span><span class="p">,</span>
+    <span class="n">lat_col</span><span class="o">=</span><span class="n">LAT</span><span class="p">,</span>
+    <span class="n">lon_anon_col</span><span class="o">=</span><span class="s2">"lon_anon"</span><span class="p">,</span>
+    <span class="n">lat_anon_col</span><span class="o">=</span><span class="s2">"lat_anon"</span><span class="p">,</span>
+    <span class="n">output_path</span><span class="o">=</span><span class="n">DIR_MWI</span> <span class="o">/</span> <span class="s2">"ihs6-2024-25"</span> <span class="o">/</span> <span class="s2">"displacement_map.html"</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[Visualization] Sampled 500 of 4987 records (pass n_sample=None to plot all)
+[Visualization] Map saved to /Users/dmatekenya/Library/CloudStorage/OneDrive-WBG/Survey-Geo-Enhancement/git-repos/spatial-anonymization/data/mwi/ihs6-2024-25/displacement_map.html
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            name: "python3",
+            path: "./notebooks"
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../docs/anonymization_procedure.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Spatial Anonymization: Three-Stage Mental Model</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="downloading_geospatial_inputs.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title"><span class="section-number">2. </span>Downloading &amp; Inspecting Geospatial Inputs</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#spatial-anonymization-overview">1.1. Spatial Anonymization: Overview</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-spatial-anonymization">1.1.1. What Is Spatial Anonymization?</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#anonymization-logic">1.2. Anonymization Logic</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dataset-description">1.3. Dataset Description</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-data-fields">1.3.1. Key Data Fields</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#data-characteristics">1.3.2. Data Characteristics</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#python-setup">1.4. 1. Python Setup <a id="setup"></a></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#working-directory-and-inputs-setup">1.5. 2. Working Directory and Inputs Setup</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example">1.5.1. Example</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#input-data-preparation">1.6. 3. Input Data Preparation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#coordinates">1.6.1. 3.1 Coordinates</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#administrative-boundaries">1.6.2. 3.2 Administrative Boundaries</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#population-data-optional">1.6.3. 3.3 Population Data (Optional)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-spatial-anonymization">1.7. 4. Configuring Spatial Anonymization</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-1-preset-configurations-recommended">1.7.1. Option-1: Preset Configurations (Recommended)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#option-2-custom-configuration">1.7.2. Option-2. Custom Configuration</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-decisions">1.7.3. Key Decisions</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-the-survey-anonymization">1.8. 5. Running the Survey Anonymization</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-happens-internally">1.8.1. What happens internally</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#key-parameters">1.8.2. Key parameters</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#review-anonymized-results">1.9. 6. Review Anonymized Results</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#handling-failed-displacements">1.9.1. 6.1 Handling failed displacements</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#output-folder-structure">1.9.2. 6.2 Output folder structure</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#output-dataframe">1.9.3. 6.3 Output DataFrame</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#validation-checks">1.9.4. 6.4 Validation Checks</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By World Bank Development Data Group
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    <p class="last-updated">
+  Last updated on Nov 19, 2026.
+  <br/>
+</p>
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=55c26ed414f5f8a31ebb"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=55c26ed414f5f8a31ebb"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
