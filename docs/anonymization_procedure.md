@@ -1,10 +1,10 @@
-## Spatial Anonymization: Three-Stage Mental Model
+# Spatial Anonymization: Three-Stage Mental Model
 
 This package follows a clear three-stage process for anonymizing household or cluster coordinates. Separating these stages avoids infinite loops, improves performance, and makes privacy guarantees explicit and testable.
 
 ---
 
-### 1. Radius Selection (Privacy Envelope)
+## 1. Radius Selection (Privacy Envelope)
 
 **Question answered:**  
 *How large should the uncertainty region around the original point be?*
@@ -24,7 +24,7 @@ Population logic belongs **only** at this stage.
 
 ---
 
-### 2. Point Displacement (Geometry)
+## 2. Point Displacement (Geometry)
 
 **Question answered:**  
 *Where inside the uncertainty region should the point be moved?*
@@ -42,7 +42,7 @@ At this stage:
 
 ---
 
-### 3. Constraint Evaluation (Validity)
+## 3. Constraint Evaluation (Validity)
 
 **Question answered:**  
 *Is the displaced point acceptable?*
@@ -58,7 +58,7 @@ If a constraint fails, a new displacement is attempted within the same radius.
 
 ---
 
-### Key Design Principle
+## Key Design Principle
 
 > **Population determines the anonymization envelope; constraints determine whether a displaced point is valid.**
 

@@ -2,19 +2,19 @@ format: jb-book
 root: README
 
 parts:
-  - caption: Examples
+  - caption: Methodology
+    chapters:
+      - file: docs/anonymization_procedure.md
+  - caption: Tutorials
     numbered: True
     chapters:
-      - file: notebooks/world-bank-api.ipynb
-      - file: notebooks/world-bank-package.ipynb
-      - file: notebooks/nasa-apod.ipynb
-  - caption: Additional Resources
+      - file: notebooks/getting_started.ipynb
+      - file: notebooks/downloading_geospatial_inputs.ipynb
+  - caption: References
     chapters:
-      - url: https://datapartnership.org
-        title: Development Data Partnership
-      - url: https://wbdatalab.org
-        title: World Bank Data Lab
-      - url: https://www.worldbank.org/en/about/unit/unit-dec
-        title: World Bank DEC
-      - url: https://www.worldbank.org/en/research/dime
-        title: World Bank DIME
+      - url: https://www.dhsprogram.com/pubs/pdf/SAR7/SAR7.pdf
+        title: DHS Geographic Displacement Procedure (SAR7)
+      - url: https://unstats.un.org/unsd/statcom/52nd-session/documents/BG-3l-Spatial_Anonymization-E.pdf
+        title: UNSD Guidelines on Spatial Anonymization
+      - url: https://github.com/worldbank/DECAT_HH_Geovariables
+        title: Survey Geo-enhancement project
